@@ -3,6 +3,8 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import logging
+import SimpleITK as sitk
+import sitkUtils
 
 #
 # ComputeT2Star
@@ -57,7 +59,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #  your module to users)
     self.reloadButton = qt.QPushButton("Reload")
     self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "NeedleGuideTemlpate Reload"
+    self.reloadButton.name = "ComputeT2Star Reload"
     reloadFormLayout.addWidget(self.reloadButton)
     self.reloadButton.connect('clicked()', self.onReload)
     #
@@ -88,8 +90,8 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE1Selector.showHidden = False
     self.inputTE1Selector.showChildNodeTypes = False
     self.inputTE1Selector.setMRMLScene( slicer.mrmlScene )
-    self.inputTE1Selector.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Input Volume: ", self.inputTE1Selector)
+    self.inputTE1Selector.setToolTip( "Pick the first volume" )
+    parametersFormLayout.addRow("Input Volume 1: ", self.inputTE1Selector)
 
     #
     # input volume selector
@@ -104,8 +106,8 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE2Selector.showHidden = False
     self.inputTE2Selector.showChildNodeTypes = False
     self.inputTE2Selector.setMRMLScene( slicer.mrmlScene )
-    self.inputTE2Selector.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Input Volume: ", self.inputTE2Selector)
+    self.inputTE2Selector.setToolTip( "Pick the second volume" )
+    parametersFormLayout.addRow("Input Volume 2: ", self.inputTE2Selector)
 
 
     #
@@ -121,8 +123,29 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.outputSelector.showHidden = False
     self.outputSelector.showChildNodeTypes = False
     self.outputSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputSelector.setToolTip( "Pick the output to the algorithm." )
+    self.outputSelector.setToolTip( "Pick the output volume." )
     parametersFormLayout.addRow("Output Volume: ", self.outputSelector)
+
+    #
+    # First TE
+    #
+    self.TE1SpinBox = qt.QDoubleSpinBox()
+    self.TE1SpinBox.objectName = 'TE1SpinBox'
+    self.TE1SpinBox.setMaximum(100.0)
+    self.TE1SpinBox.setMinimum(0.0001)
+    self.TE1SpinBox.setDecimals(6)
+    self.TE1SpinBox.setValue(0.07)
+    self.TE1SpinBox.setToolTip("TE for Input Volume 1")
+    parametersFormLayout.addRow("TE1 (ms): ", self.TE1SpinBox)
+
+    self.TE2SpinBox = qt.QDoubleSpinBox()
+    self.TE2SpinBox.objectName = 'TE2SpinBox'
+    self.TE2SpinBox.setMaximum(100.0)
+    self.TE2SpinBox.setMinimum(0.0001)
+    self.TE2SpinBox.setDecimals(6)
+    self.TE2SpinBox.setValue(3.0)
+    self.TE2SpinBox.setToolTip("TE for Input Volume 2")
+    parametersFormLayout.addRow("TE2 (ms): ", self.TE2SpinBox)
 
     ##
     ## check box to trigger taking screen shots for later use in tutorials
@@ -162,9 +185,9 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     logic = ComputeT2StarLogic()
     #enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
     #imageThreshold = self.imageThresholdSliderWidget.value
-    logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(), self.outputSelector.currentNode())
+    logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(), self.outputSelector.currentNode(), self.TE1SpinBox.value, self.TE2SpinBox.value)
 
-  def onReload(self, moduleName="NeedleGuideTemplate"):
+  def onReload(self, moduleName="ComputeT2Star"):
     # Generic reload method for any scripted module.
     # ModuleWizard will subsitute correct default moduleName.
 
@@ -176,14 +199,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
 #
 
 class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
-  """This class should implement all the actual
-  computation done by your module.  The interface
-  should be such that other python code can import
-  this class and make use of the functionality without
-  requiring an instance of the Widget.
-  Uses ScriptedLoadableModuleLogic base class, available at:
-  https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
-  """
 
   def isValidInputOutputData(self, inputTE1VolumeNode, inputTE2VolumeNode, outputVolumeNode):
     """Validates if the output is not the same as input
@@ -199,26 +214,26 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       return False
     return True
 
-  def run(self, inputTE1Volume, inputTE2Volume, outputVolume):
+  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputVolumeNode, TE1, TE2):
     """
     Run the actual algorithm
     """
 
-    if not self.isValidInputOutputData(inputTE1Volume, inputTE2Volume, outputVolume):
+    if not self.isValidInputOutputData(inputTE1VolumeNode, inputTE2VolumeNode, outputVolumeNode):
       slicer.util.errorDisplay('Input volume is the same as output volume. Choose a different output volume.')
       return False
 
     logging.info('Processing started')
 
-    # Compute the thresholded output volume using the Threshold Scalar Volume CLI module
-    cliParams = {'InputVolume': inputVolume.GetID(), 'OutputVolume': outputVolume.GetID(), 'ThresholdValue' : imageThreshold, 'ThresholdType' : 'Above'}
-    cliNode = slicer.cli.run(slicer.modules.thresholdscalarvolume, None, cliParams, wait_for_completion=True)
+    imageTE1 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE1VolumeNode.GetID()), sitk.sitkFloat64)
+    imageTE2 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE2VolumeNode.GetID()), sitk.sitkFloat64)
+    imageT2Star = sitk.Divide(-(TE2-TE1), sitk.Log(sitk.Divide(imageTE2, imageTE1)))
+    sitkUtils.PushToSlicer(imageT2Star, outputVolumeNode.GetID(), 0, True);
 
     logging.info('Processing completed')
 
     return True
 
-o
 class ComputeT2StarTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
@@ -249,26 +264,28 @@ class ComputeT2StarTest(ScriptedLoadableModuleTest):
     your test should break so they know that the feature is needed.
     """
 
-    self.delayDisplay("Starting the test")
-    #
-    # first, get some data
-    #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
+    pass
 
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        logging.info('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        logging.info('Loading %s...' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading')
-
-    volumeNode = slicer.util.getNode(pattern="FA")
-    logic = ComputeT2StarLogic()
-    self.assertTrue( logic.hasImageData(volumeNode) )
-    self.delayDisplay('Test passed!')
+    #self.delayDisplay("Starting the test")
+    ##
+    ## first, get some data
+    ##
+    #import urllib
+    #downloads = (
+    #    ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
+    #    )
+    #
+    #for url,name,loader in downloads:
+    #  filePath = slicer.app.temporaryPath + '/' + name
+    #  if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
+    #    logging.info('Requesting download %s from %s...\n' % (name, url))
+    #    urllib.urlretrieve(url, filePath)
+    #  if loader:
+    #    logging.info('Loading %s...' % (name,))
+    #    loader(filePath)
+    #self.delayDisplay('Finished with download and loading')
+    #
+    #volumeNode = slicer.util.getNode(pattern="FA")
+    #logic = ComputeT2StarLogic()
+    #self.assertTrue( logic.hasImageData(volumeNode) )
+    #self.delayDisplay('Test passed!')

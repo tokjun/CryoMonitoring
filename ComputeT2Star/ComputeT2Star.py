@@ -292,17 +292,17 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))
       if upperThreshold or lowerThreshold:
         imageT2StarThreshold = sitk.Threshold(imageT2Star, lowerThreshold, upperThreshold, 0.0)
-        sitkUtils.PushToSlicer(imageT2StarThreshold, outputT2StarVolumeNode.GetID(), 0, True)
+        sitkUtils.PushToSlicer(imageT2StarThreshold, outputT2StarVolumeNode.GetName(), 0, True)
       else:
-        sitkUtils.PushToSlicer(imageT2Star, outputT2StarVolumeNode.GetID(), 0, True)
+        sitkUtils.PushToSlicer(imageT2Star, outputT2StarVolumeNode.GetName(), 0, True)
 
     if outputR2StarVolumeNode:
       imageR2Star = sitk.Divide(sitk.Log(sitk.Divide(imageTE2, imageTE1)), TE1-TE2)
       if upperThreshold or lowerThreshold:
         imageR2StarThreshold = sitk.Threshold(imageR2Star, lowerThreshold, upperThreshold, 0.0)
-        sitkUtils.PushToSlicer(imageR2StarThreshold, outputR2StarVolumeNode.GetID(), 0, True)
+        sitkUtils.PushToSlicer(imageR2StarThreshold, outputR2StarVolumeNode.GetName(), 0, True)
       else:
-        sitkUtils.PushToSlicer(imageR2Star, outputR2StarVolumeNode.GetID(), 0, True)
+        sitkUtils.PushToSlicer(imageR2Star, outputR2StarVolumeNode.GetName(), 0, True)
 
     logging.info('Processing completed')
 

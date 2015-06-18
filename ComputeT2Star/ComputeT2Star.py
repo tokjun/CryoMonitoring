@@ -84,9 +84,10 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE1Selector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
     self.inputTE1Selector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.inputTE1Selector.selectNodeUponCreation = True
-    self.inputTE1Selector.addEnabled = False
-    self.inputTE1Selector.removeEnabled = False
-    self.inputTE1Selector.noneEnabled = False
+    self.inputTE1Selector.addEnabled = True
+    self.inputTE1Selector.removeEnabled = True
+    self.inputTE1Selector.noneEnabled = True
+    self.inputTE1Selector.renameEnabled = True
     self.inputTE1Selector.showHidden = False
     self.inputTE1Selector.showChildNodeTypes = False
     self.inputTE1Selector.setMRMLScene( slicer.mrmlScene )
@@ -100,15 +101,15 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE2Selector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
     self.inputTE2Selector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.inputTE2Selector.selectNodeUponCreation = True
-    self.inputTE2Selector.addEnabled = False
-    self.inputTE2Selector.removeEnabled = False
-    self.inputTE2Selector.noneEnabled = False
+    self.inputTE2Selector.addEnabled = True
+    self.inputTE2Selector.removeEnabled = True
+    self.inputTE2Selector.noneEnabled = True
+    self.inputTE2Selector.renameEnabled = True
     self.inputTE2Selector.showHidden = False
     self.inputTE2Selector.showChildNodeTypes = False
     self.inputTE2Selector.setMRMLScene( slicer.mrmlScene )
     self.inputTE2Selector.setToolTip( "Pick the second volume" )
     parametersFormLayout.addRow("Input Volume 2: ", self.inputTE2Selector)
-
 
     #
     # outputT2Star volume selector

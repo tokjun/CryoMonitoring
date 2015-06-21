@@ -82,7 +82,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.inputTE1Selector = slicer.qMRMLNodeComboBox()
     self.inputTE1Selector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.inputTE1Selector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.inputTE1Selector.selectNodeUponCreation = True
     self.inputTE1Selector.addEnabled = True
     self.inputTE1Selector.removeEnabled = True
@@ -99,7 +98,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.inputTE2Selector = slicer.qMRMLNodeComboBox()
     self.inputTE2Selector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.inputTE2Selector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.inputTE2Selector.selectNodeUponCreation = True
     self.inputTE2Selector.addEnabled = True
     self.inputTE2Selector.removeEnabled = True
@@ -116,7 +114,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.outputT2StarSelector = slicer.qMRMLNodeComboBox()
     self.outputT2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.outputT2StarSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.outputT2StarSelector.selectNodeUponCreation = True
     self.outputT2StarSelector.addEnabled = True
     self.outputT2StarSelector.removeEnabled = True
@@ -133,7 +130,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.outputR2StarSelector = slicer.qMRMLNodeComboBox()
     self.outputR2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.outputR2StarSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.outputR2StarSelector.selectNodeUponCreation = True
     self.outputR2StarSelector.addEnabled = True
     self.outputR2StarSelector.removeEnabled = True

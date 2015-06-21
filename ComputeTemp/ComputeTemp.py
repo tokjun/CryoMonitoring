@@ -82,7 +82,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     #
     self.baselineR2StarSelector = slicer.qMRMLNodeComboBox()
     self.baselineR2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.baselineR2StarSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.baselineR2StarSelector.selectNodeUponCreation = True
     self.baselineR2StarSelector.addEnabled = False
     self.baselineR2StarSelector.removeEnabled = False
@@ -98,7 +97,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     #
     self.referenceR2StarSelector = slicer.qMRMLNodeComboBox()
     self.referenceR2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.referenceR2StarSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.referenceR2StarSelector.selectNodeUponCreation = True
     self.referenceR2StarSelector.addEnabled = False
     self.referenceR2StarSelector.removeEnabled = False
@@ -115,7 +113,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     #
     self.tempMapSelector = slicer.qMRMLNodeComboBox()
     self.tempMapSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.tempMapSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
     self.tempMapSelector.selectNodeUponCreation = True
     self.tempMapSelector.addEnabled = True
     self.tempMapSelector.removeEnabled = True

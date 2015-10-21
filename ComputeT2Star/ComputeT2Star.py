@@ -236,6 +236,8 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     logic = ComputeT2StarLogic()
     #enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
     #imageThreshold = self.imageThresholdSliderWidget.value
+    t2name = self.outputT2StarSelector.currentNode().GetName()
+    r2name = self.outputR2StarSelector.currentNode().GetName()
     if self.useThresholdFlagCheckBox.checked == True:
       logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
                 self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
@@ -245,7 +247,13 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
       logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
                 self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
                 self.TE1SpinBox.value, self.TE2SpinBox.value)
-      
+
+    ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
+    ### reset the selector.
+    t2Node = slicer.util.getNode(t2name)
+    r2Node = slicer.util.getNode(r2name)
+    self.outputT2StarSelector.setCurrentNode(t2Node)
+    self.outputR2StarSelector.setCurrentNode(r2Node)
 
   def onReload(self, moduleName="ComputeT2Star"):
     # Generic reload method for any scripted module.

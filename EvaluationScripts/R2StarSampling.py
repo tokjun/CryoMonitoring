@@ -16,7 +16,7 @@ outputFileName = 'R2Star.csv'
 labelImageFile = 'sampling-label.nrrd'
 
 TE1 = 0.00007  ## s
-TE2 = 0.002    ## s
+TE2 = 0.0045    ## s
 lowerThreshold = -100000.0
 upperThreshold = 100000.0
 

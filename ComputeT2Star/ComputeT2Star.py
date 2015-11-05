@@ -178,10 +178,10 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.upperThresholdSpinBox = qt.QDoubleSpinBox()
     self.upperThresholdSpinBox.objectName = 'upperThresholdSpinBox'
-    self.upperThresholdSpinBox.setMaximum(10000.0)
-    self.upperThresholdSpinBox.setMinimum(-10000.0)
+    self.upperThresholdSpinBox.setMaximum(1000000.0)
+    self.upperThresholdSpinBox.setMinimum(-1000000.0)
     self.upperThresholdSpinBox.setDecimals(6)
-    self.upperThresholdSpinBox.setValue(1000.0)
+    self.upperThresholdSpinBox.setValue(1000000.0)
     self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
     parametersFormLayout.addRow("Upper Threshold (s): ", self.upperThresholdSpinBox)
 
@@ -190,10 +190,10 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     self.lowerThresholdSpinBox = qt.QDoubleSpinBox()
     self.lowerThresholdSpinBox.objectName = 'lowerThresholdSpinBox'
-    self.lowerThresholdSpinBox.setMaximum(10000.0)
-    self.lowerThresholdSpinBox.setMinimum(-10000.0)
+    self.lowerThresholdSpinBox.setMaximum(1000000.0)
+    self.lowerThresholdSpinBox.setMinimum(-1000000.0)
     self.lowerThresholdSpinBox.setDecimals(6)
-    self.lowerThresholdSpinBox.setValue(-1000.0)
+    self.lowerThresholdSpinBox.setValue(-1000000.0)
     self.lowerThresholdSpinBox.setToolTip("Lower threshold for the output")
     parametersFormLayout.addRow("Lower Threshold (s): ", self.lowerThresholdSpinBox)
 

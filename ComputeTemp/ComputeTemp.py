@@ -132,7 +132,8 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramASpinBox.setMaximum(100.0)
     self.paramASpinBox.setMinimum(-100.0)
     self.paramASpinBox.setDecimals(8)
-    self.paramASpinBox.setValue(0.0735)
+    #self.paramASpinBox.setValue(0.0735)
+    self.paramASpinBox.setValue(0.15798)
     self.paramASpinBox.setToolTip("TE for Input Volume 1")
     parametersFormLayout.addRow("Param A: ", self.paramASpinBox)
 
@@ -144,7 +145,8 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramBSpinBox.setMaximum(100.0)
     self.paramBSpinBox.setMinimum(-100.0)
     self.paramBSpinBox.setDecimals(8)
-    self.paramBSpinBox.setValue(-4.0588)
+    #self.paramBSpinBox.setValue(-4.0588)
+    self.paramBSpinBox.setValue(-9.92)
     self.paramBSpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("Param B: ", self.paramBSpinBox)
 
@@ -160,11 +162,11 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     # Upper threshold - We set threshold value to limit the range of intensity 
     #
     self.upperThresholdSpinBox = qt.QDoubleSpinBox()
-    self.upperThresholdSpinBox.objectName = 'upperThresholdSpinBox'
-    self.upperThresholdSpinBox.setMaximum(10000.0)
-    self.upperThresholdSpinBox.setMinimum(-10000.0)
+    self.upperThresholdSpinBox.objectName = xo'upperThresholdSpinBox'
+    self.upperThresholdSpinBox.setMaximum(1000000.0)
+    self.upperThresholdSpinBox.setMinimum(-1000000.0)
     self.upperThresholdSpinBox.setDecimals(6)
-    self.upperThresholdSpinBox.setValue(1000.0)
+    self.upperThresholdSpinBox.setValue(-1000000.0)
     self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
     parametersFormLayout.addRow("Upper Threshold (ms): ", self.upperThresholdSpinBox)
 
@@ -173,10 +175,10 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     #
     self.lowerThresholdSpinBox = qt.QDoubleSpinBox()
     self.lowerThresholdSpinBox.objectName = 'lowerThresholdSpinBox'
-    self.lowerThresholdSpinBox.setMaximum(10000.0)
-    self.lowerThresholdSpinBox.setMinimum(-10000.0)
+    self.lowerThresholdSpinBox.setMaximum(1000000.0)
+    self.lowerThresholdSpinBox.setMinimum(-1000000.0)
     self.lowerThresholdSpinBox.setDecimals(6)
-    self.lowerThresholdSpinBox.setValue(-1000.0)
+    self.lowerThresholdSpinBox.setValue(-1000000.0)
     self.lowerThresholdSpinBox.setToolTip("Lower threshold for the output")
     parametersFormLayout.addRow("Lower Threshold (ms): ", self.lowerThresholdSpinBox)
 

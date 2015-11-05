@@ -10,17 +10,17 @@ from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 
 ### Parameters
-workingDir = '/Users/junichi/Experiments/UTE/UTE-Phantom/UTE-2015-10-16/'
+workingDir = '/Users/junichi/Dropbox/Experiments/UTE/UTE-2015-10-16/'
 imageDir = '%s/Scene/' % (workingDir)
 outputFileName = 'R2Star.csv'
 labelImageFile = 'sampling-label.nrrd'
 
 TE1 = 0.00007  ## s
-TE2 = 0.0045    ## s
+TE2 = 0.002    ## s
 lowerThreshold = -100000.0
 upperThreshold = 100000.0
 
-imageIndeces = [28, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 74, 78, 82, 86, 90, 94]
+imageIndeces = [25, 28, 33, 37, 41, 45, 49, 53, 57, 61, 65, 69, 74, 78, 82, 86, 90, 94]
 
 ### Setup modules
 slicer.util.selectModule('ComputeT2Star')
@@ -30,7 +30,7 @@ slicer.util.selectModule('LabelStatistics')
 
 ### Open output file
 outputFile = open(workingDir+'/'+outputFileName, 'w')
-outputFile.write("Image,Index,Count,Volume mm^3,Volume cc,Min,Max,Mean,StdDev\n")
+outputFile.write("Image,Type,Index,Count,Volume mm^3,Volume cc,Min,Max,Mean,StdDev\n")
 
 ### Load label data
 (r, labelNode) = slicer.util.loadVolume(imageDir+'/'+labelImageFile, {}, True)
@@ -68,6 +68,33 @@ for idx in imageIndeces:
 
         for i in lslogic.labelStats["Labels"]:
             outputFile.write("%f," % idx)
+            outputFile.write("R2s,")
+            outputFile.write("%f," % lslogic.labelStats[i,"Index"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Count"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Volume mm^3"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Volume cc"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Min"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Max"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Mean"])
+            outputFile.write("%f\n" % lslogic.labelStats[i,"StdDev"])
+
+        lslogic = LabelStatisticsLogic(firstEchoNode, labelNode)
+        for i in lslogic.labelStats["Labels"]:
+            outputFile.write("%f," % idx)
+            outputFile.write("Echo1,")
+            outputFile.write("%f," % lslogic.labelStats[i,"Index"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Count"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Volume mm^3"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Volume cc"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Min"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Max"])
+            outputFile.write("%f," % lslogic.labelStats[i,"Mean"])
+            outputFile.write("%f\n" % lslogic.labelStats[i,"StdDev"])
+
+        lslogic = LabelStatisticsLogic(secondEchoNode, labelNode)
+        for i in lslogic.labelStats["Labels"]:
+            outputFile.write("%f," % idx)
+            outputFile.write("Echo2,")
             outputFile.write("%f," % lslogic.labelStats[i,"Index"])
             outputFile.write("%f," % lslogic.labelStats[i,"Count"])
             outputFile.write("%f," % lslogic.labelStats[i,"Volume mm^3"])

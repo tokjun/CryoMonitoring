@@ -27,6 +27,7 @@ slicer.util.selectModule('ComputeT2Star')
 T2StarLogic = ComputeT2StarLogic()
 
 slicer.util.selectModule('LabelStatistics')
+#LabelStatisticsLogic = slicer.modules.labelstatistics.logic()
 
 ### Open output file
 outputFile = open(workingDir+'/'+outputFileName, 'w')

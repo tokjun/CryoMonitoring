@@ -166,7 +166,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.upperThresholdSpinBox.setMaximum(1000000.0)
     self.upperThresholdSpinBox.setMinimum(-1000000.0)
     self.upperThresholdSpinBox.setDecimals(6)
-    self.upperThresholdSpinBox.setValue(-1000000.0)
+    self.upperThresholdSpinBox.setValue(1000000.0)
     self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
     parametersFormLayout.addRow("Upper Threshold (ms): ", self.upperThresholdSpinBox)
 

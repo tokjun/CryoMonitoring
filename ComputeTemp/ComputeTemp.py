@@ -162,7 +162,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     # Upper threshold - We set threshold value to limit the range of intensity 
     #
     self.upperThresholdSpinBox = qt.QDoubleSpinBox()
-    self.upperThresholdSpinBox.objectName = xo'upperThresholdSpinBox'
+    self.upperThresholdSpinBox.objectName = 'upperThresholdSpinBox'
     self.upperThresholdSpinBox.setMaximum(1000000.0)
     self.upperThresholdSpinBox.setMinimum(-1000000.0)
     self.upperThresholdSpinBox.setDecimals(6)

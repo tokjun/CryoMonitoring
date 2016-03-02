@@ -11,36 +11,23 @@ from slicer.ScriptedLoadableModule import *
 import SimpleITK as sitk
 import sitkUtils
 
+import LabelStatistics
+import ComputeT2Star
+import ComputeTemp
 
-### Parameters
-workingDir = '/Users/junichi/Experiments/UTE/UTE-Clinical/ISMRM2015/'
-
-imageDir = ''
-
-TE1 = 0.00007  ## s
-TE2 = 0.002    ## s
 lowerThreshold = -1000000.0
 upperThreshold =  1000000.0
-
-# Assume the unit for R2* data is s^-1
-# Temp = A * R2Star + B
-paramA = 0.15798
-paramB = -9.92
-
-imageIndeces = [2, 5, 7, 8, 9, 10, 11, 12]
 
 slicer.util.selectModule('LabelStatistics')
 
 ### Setup modules
-slicer.util.selectModule('ComputeT2Star')
-T2StarLogic = ComputeT2StarLogic()
+#slicer.util.selectModule('ComputeT2Star')
+T2StarLogic = ComputeT2Star.ComputeT2StarLogic()
 
-slicer.util.selectModule('ComputeTemp')
-TempLogic = ComputeTempLogic()
+#slicer.util.selectModule('ComputeTemp')
+TempLogic = ComputeTemp.ComputeTempLogic()
 
-#LabelStatisticsLogic = slicer.modules.labelstatistics.logic()
-
-def CalcNoise(image1Name, image2Name, ROIName):
+def CalcNoise(imageDir, image1Name, image2Name, ROIName):
     
     image1File = image1Name+'.nrrd'
     image2File = image2Name+'.nrrd'
@@ -105,7 +92,7 @@ def CorrectNoise(inputName, outputName, noiseLevel):
         print "ERROR: Could not correct noise."
         
         
-def CalcR2Star(imageDir, firstEchoName, secondEchoName, t2StarName, r2StarName):
+def CalcR2Star(imageDir, firstEchoName, secondEchoName, t2StarName, r2StarName, TE1, TE2, scaleFactor):
 
     firstEchoFile = firstEchoName+'.nrrd'
     secondEchoFile = secondEchoName+'.nrrd'
@@ -123,7 +110,7 @@ def CalcR2Star(imageDir, firstEchoName, secondEchoName, t2StarName, r2StarName):
         slicer.mrmlScene.AddNode(r2StarVolumeNode)
         r2StarVolumeNode.SetName(r2StarName)
 
-        T2StarLogic.run(firstEchoNode, secondEchoNode, t2StarVolumeNode, r2StarVolumeNode, TE1, TE2, upperThreshold, lowerThreshold)
+        T2StarLogic.run(firstEchoNode, secondEchoNode, t2StarVolumeNode, r2StarVolumeNode, TE1, TE2, scaleFactor, upperThreshold, lowerThreshold)
 
         ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
         ### reset the selector.
@@ -139,8 +126,12 @@ def CalcR2Star(imageDir, firstEchoName, secondEchoName, t2StarName, r2StarName):
         slicer.mrmlScene.RemoveNode(secondEchoNode)
     
 
+def CalcTemp(imageDir, baselineName, referenceName, tempName, r2StarName, paramA, paramB):
 
-def CalcTemp(imageDir, baselineName, referenceName, tempName, r2StarName):
+    # Assume the unit for R2* data is s^-1
+    # Temp = A * R2Star + B
+    paramA = 0.15798
+    paramB = -9.92
 
     baselineFile = baselineName+'.nrrd'
     referenceFile = referenceName+'.nrrd'
@@ -166,29 +157,81 @@ def CalcTemp(imageDir, baselineName, referenceName, tempName, r2StarName):
         slicer.mrmlScene.RemoveNode(baselineNode)
         slicer.mrmlScene.RemoveNode(referenceNode)
 
-
-
-for idx in imageIndeces:
-
-    imageDir = '%s/cryo-%03d/' % (workingDir, idx)
-    print 'processing %s ...' % imageDir
-
-    echo1Noise = CalcNoise('baseline-petra-echo1', 'fz1-max-petra-echo1', 'noise-roi-label')
-    if echo1Noise < 0:
-        echo1Noise = CalcNoise('baseline-petra-echo1', 'fz2-max-petra-echo1', 'noise-roi-label')
-
-    echo2Noise = CalcNoise('baseline-petra-echo2', 'fz1-max-petra-echo2', 'noise-roi-label')
-    if echo2Noise < 0:
-        echo2Noise = CalcNoise('baseline-petra-echo2', 'fz2-max-petra-echo2', 'noise-roi-label')
+        
+        
+def CalcScalingFactor(imageDir, echo1Name, echo2Name, ROIName):
     
-    CorrectNoise('baseline-petra-echo1', 'baseline-petra-echo1-nc', echo1Noise)
-    CorrectNoise('baseline-petra-echo2', 'baseline-petra-echo2-nc', echo2Noise)
-    CorrectNoise('fz1-max-petra-echo1', 'fz1-max-petra-echo1-nc', echo1Noise)
-    CorrectNoise('fz1-max-petra-echo2', 'fz1-max-petra-echo2-nc', echo2Noise)
-    CorrectNoise('fz2-max-petra-echo1', 'fz2-max-petra-echo1-nc', echo1Noise)
-    CorrectNoise('fz2-max-petra-echo2', 'fz2-max-petra-echo2-nc', echo2Noise)
-    
-    CalcR2Star(imageDir, 'baseline-petra-echo1-nc', 'baseline-petra-echo2-nc', 'baseline-t2s', 'baseline-r2s')
-    CalcR2Star(imageDir, 'fz1-max-petra-echo1-nc', 'fz1-max-petra-echo2-nc', 'fz1-max-t2s', 'fz1-max-r2s')
-    CalcR2Star(imageDir, 'fz2-max-petra-echo1-nc', 'fz2-max-petra-echo2-nc', 'fz2-max-t2s', 'fz2-max-r2s')
+    image1File = echo1Name+'.nrrd'
+    image2File = echo2Name+'.nrrd'
+    ROIFile = ROIName+'.nrrd'
 
+    if os.path.isfile(imageDir+'/'+image1File) and os.path.isfile(imageDir+'/'+image2File):
+        (r, image1Node) = slicer.util.loadVolume(imageDir+'/'+image1File, {}, True)
+        (r, image2Node) = slicer.util.loadVolume(imageDir+'/'+image2File, {}, True)
+        (r, ROINode) = slicer.util.loadVolume(imageDir+'/'+ROIFile, {}, True)
+
+        image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+        image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
+        
+        #absVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+        #slicer.mrmlScene.AddNode(absVolumeNode)
+        #absVolumeNode.SetName('abs')
+        #sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
+        #absVolumeNode = slicer.util.getNode('abs')
+        
+        lslogic1 = LabelStatisticsLogic(image1Node, ROINode)
+        mean1 = lslogic1.labelStats[1,"Mean"]
+
+        lslogic2 = LabelStatisticsLogic(image2Node, ROINode)
+        mean2 = lslogic2.labelStats[1,"Mean"]
+
+        slicer.mrmlScene.RemoveNode(image1Node)
+        slicer.mrmlScene.RemoveNode(image2Node)
+        slicer.mrmlScene.RemoveNode(ROINode)
+
+        ## NOTE: We assume the T2* in the ROI is long enough to assume that intensities in image1 and image2 are supposed to be similar.
+        return (mean2/mean1)
+    else:
+        print "ERROR: Could not calculate noise level"
+        return -1.0
+    
+
+def GenerateR2StarMaps(imageDir, imageIndeces, prefixEcho1, prefixEcho2, TE1, TE2, prefixT2Star, prefixR2Star, scaleFactor):
+
+    ### Parameters
+    #workingDir = '/Users/junichi/Experiments/UTE/UTE-Clinical/ISMRM2015/'
+    #imageIndeces = [2, 5, 7, 8, 9, 10, 11, 12]
+
+    if TE1 == None:
+        TE1 = 0.00007  ## s
+    if TE2 == None:
+        TE2 = 0.002    ## s
+    
+    for idx in imageIndeces:
+
+        print 'processing %s/%s%03d.nrrd ...' % (imageDir, prefixEcho1, idx)
+
+        fileEcho1 = '%s%03d' % (prefixEcho1, idx)
+        fileEcho2 = '%s%03d' % (prefixEcho2, idx)
+        fileR2Star = '%s%03d' % (prefixR2Star, idx)
+        fileT2Star = '%s%03d' % (prefixT2Star, idx)
+
+        ### Skip noise correction for now...
+        #
+        #echo1Noise = CalcNoise(imageDir, 'baseline-petra-echo1', 'fz1-max-petra-echo1', 'noise-roi-label')
+        #if echo1Noise < 0:
+        #    echo1Noise = CalcNoise(imageDir, 'baseline-petra-echo1', 'fz2-max-petra-echo1', 'noise-roi-label')
+        #
+        #echo2Noise = CalcNoise(imageDir, 'baseline-petra-echo2', 'fz1-max-petra-echo2', 'noise-roi-label')
+        #if echo2Noise < 0:
+        #    echo2Noise = CalcNoise(imageDir, 'baseline-petra-echo2', 'fz2-max-petra-echo2', 'noise-roi-label')
+        #
+        #CorrectNoise('baseline-petra-echo1', 'baseline-petra-echo1-nc', echo1Noise)
+        #CorrectNoise('baseline-petra-echo2', 'baseline-petra-echo2-nc', echo2Noise)
+        #CorrectNoise('fz1-max-petra-echo1', 'fz1-max-petra-echo1-nc', echo1Noise)
+        #CorrectNoise('fz1-max-petra-echo2', 'fz1-max-petra-echo2-nc', echo2Noise)
+        #CorrectNoise('fz2-max-petra-echo1', 'fz2-max-petra-echo1-nc', echo1Noise)
+        #CorrectNoise('fz2-max-petra-echo2', 'fz2-max-petra-echo2-nc', echo2Noise)
+
+        ## Intensity clibration for echoes 1 and 2
+        CalcR2Star(imageDir, fileEcho1, fileEcho2, fileT2Star, fileR2Star, TE1, TE2, scaleFactor)

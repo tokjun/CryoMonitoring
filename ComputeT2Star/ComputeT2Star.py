@@ -165,6 +165,19 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.TE2SpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("TE2 (s): ", self.TE2SpinBox)
 
+
+    #
+    # Scaling Factor
+    #
+    self.ScaleSpinBox = qt.QDoubleSpinBox()
+    self.ScaleSpinBox.objectName = 'ScaleSpinBox'
+    self.ScaleSpinBox.setMaximum(10.000)
+    self.ScaleSpinBox.setMinimum(0.000)
+    self.ScaleSpinBox.setDecimals(8)
+    self.ScaleSpinBox.setValue(1.000)
+    self.ScaleSpinBox.setToolTip("Scaling factor to adjust magnitude of volume 2.")
+    parametersFormLayout.addRow("Scaling Factor: ", self.ScaleSpinBox)
+    
     #
     # check box to trigger taking screen shots for later use in tutorials
     #
@@ -241,12 +254,12 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     if self.useThresholdFlagCheckBox.checked == True:
       logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
                 self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
-                self.TE1SpinBox.value, self.TE2SpinBox.value,
+                self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value,
                 self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value)
     else:
       logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
                 self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
-                self.TE1SpinBox.value, self.TE2SpinBox.value)
+                self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value)
 
     ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
     ### reset the selector.
@@ -268,6 +281,9 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
 
 class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
+  def __init__(self):
+    ScriptedLoadableModuleLogic.__init__(self)
+  
   def isValidInputOutputData(self, inputTE1VolumeNode, inputTE2VolumeNode):
     """Validates if the output is not the same as input
     """
@@ -279,7 +295,7 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       return False
     return True
 
-  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, upperThreshold=None, lowerThreshold=None):
+  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, upperThreshold=None, lowerThreshold=None):
     """
     Run the actual algorithm
     """
@@ -292,6 +308,9 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
     imageTE1 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE1VolumeNode.GetID()), sitk.sitkFloat64)
     imageTE2 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE2VolumeNode.GetID()), sitk.sitkFloat64)
+
+    ## Apply scaling factor
+    imageTE2 = sitk.Multiply(imageTE2, scaleFactor)
 
     if outputT2StarVolumeNode:
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))

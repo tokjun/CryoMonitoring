@@ -10,6 +10,7 @@ from __main__ import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
 import SimpleITK as sitk
 import sitkUtils
+import csv
 
 import LabelStatistics
 import ComputeT2Star
@@ -49,7 +50,7 @@ def CalcNoise(imageDir, image1Name, image2Name, ROIName):
         sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
 
         absVolumeNode = slicer.util.getNode('abs')
-        lslogic = LabelStatisticsLogic(absVolumeNode, ROINode)
+        lslogic = LabelStatistics.LabelStatisticsLogic(absVolumeNode, ROINode)
         meanAbsDiff = lslogic.labelStats[1,"Mean"]
 
         slicer.mrmlScene.RemoveNode(image1Node)
@@ -179,10 +180,10 @@ def CalcScalingFactor(imageDir, echo1Name, echo2Name, ROIName):
         #sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
         #absVolumeNode = slicer.util.getNode('abs')
         
-        lslogic1 = LabelStatisticsLogic(image1Node, ROINode)
+        lslogic1 = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
         mean1 = lslogic1.labelStats[1,"Mean"]
 
-        lslogic2 = LabelStatisticsLogic(image2Node, ROINode)
+        lslogic2 = LabelStatistics.LabelStatisticsLogic(image2Node, ROINode)
         mean2 = lslogic2.labelStats[1,"Mean"]
 
         slicer.mrmlScene.RemoveNode(image1Node)
@@ -190,24 +191,51 @@ def CalcScalingFactor(imageDir, echo1Name, echo2Name, ROIName):
         slicer.mrmlScene.RemoveNode(ROINode)
 
         ## NOTE: We assume the T2* in the ROI is long enough to assume that intensities in image1 and image2 are supposed to be similar.
-        return (mean2/mean1)
+        return (mean1/mean2)
     else:
-        print "ERROR: Could not calculate noise level"
+        print "ERROR: scaling factor"
         return -1.0
     
 
-def GenerateR2StarMaps(imageDir, imageIndeces, prefixEcho1, prefixEcho2, TE1, TE2, prefixT2Star, prefixR2Star, scaleFactor):
+def CalcScalingFactorBatch(imageDir, imageIndices, prefixEcho1, prefixEcho2, ROIName):
+
+    factors = numpy.array([])
+
+    for idx in imageIndices:
+        fileEcho1 = '%s%03d' % (prefixEcho1, idx)
+        fileEcho2 = '%s%03d' % (prefixEcho2, idx)
+        factor = CalcScalingFactor(imageDir, fileEcho1, fileEcho2, ROIName)
+        print 'Scaling factor for %s%03d.nrrd: %f' % (prefixEcho1, idx, factor)
+        if factor > 0.0:
+            factors = numpy.append(factors, factor)
+    print 'factor = %f +/- %f' % (numpy.mean(factors), numpy.std(factors))
+
+
+def LoadImageList(imageListCSV):
+
+    imageList = [[],[]]
+    with open(imageListCSV,'rb') as csvfile:
+        csvreader = csv.reader(csvfile, delimiter=',')
+        for row in csvreader:
+            #imageList.append([int(csvreader[0]), float(csvreader[1])])
+            if row != [] and row[0] != 'Se':
+                imageList[0].append(int(row[0]))
+                imageList[1].append(float(row[1]))
+    return imageList
+            
+
+def GenerateR2StarMaps(imageDir, imageIndices, prefixEcho1, prefixEcho2, TE1, TE2, prefixT2Star, prefixR2Star, scaleFactor):
 
     ### Parameters
     #workingDir = '/Users/junichi/Experiments/UTE/UTE-Clinical/ISMRM2015/'
-    #imageIndeces = [2, 5, 7, 8, 9, 10, 11, 12]
+    #imageIndices = [2, 5, 7, 8, 9, 10, 11, 12]
 
     if TE1 == None:
         TE1 = 0.00007  ## s
     if TE2 == None:
         TE2 = 0.002    ## s
     
-    for idx in imageIndeces:
+    for idx in imageIndices:
 
         print 'processing %s/%s%03d.nrrd ...' % (imageDir, prefixEcho1, idx)
 

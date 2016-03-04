@@ -125,8 +125,39 @@ def CalcR2Star(imageDir, firstEchoName, secondEchoName, t2StarName, r2StarName, 
         slicer.mrmlScene.RemoveNode(r2StarVolumeNode)
         slicer.mrmlScene.RemoveNode(firstEchoNode)
         slicer.mrmlScene.RemoveNode(secondEchoNode)
-    
 
+        
+def SampleIntensities(imageDir, imageName, ROIName):
+    imageFile = imageName+'.nrrd'
+    ROIFile = ROIName+'.nrrd'
+
+    if os.path.isfile(imageDir+'/'+imageFile) and os.path.isfile(imageDir+'/'+ROIFile):
+        (r, imageNode) = slicer.util.loadVolume(imageDir+'/'+imageFile, {}, True)
+        (r, ROINode) = slicer.util.loadVolume(imageDir+'/'+ROIFile, {}, True)
+        
+        image = sitk.Cast(sitkUtils.PullFromSlicer(imageNode.GetID()), sitk.sitkFloat32)
+        ROI   = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkUInt8)
+
+        stats = sitk.LabelStatisticsImageFilter()
+        stats.Execute(image, ROI)
+
+        n = stats.GetNumberOfLabels()
+        intensityMean = []
+        intensitySD = []
+        for i in range(0, n):
+            intensityMean.append(stats.GetMean(i))
+            intensitySD.append(stats.GetSigma(i))
+
+        slicer.mrmlScene.RemoveNode(imageNode)
+        slicer.mrmlScene.RemoveNode(ROINode)
+            
+        return (intensityMean, intensitySD)
+
+    else:
+        print "ERROR: Files did not exist."
+        return ([], [])
+
+        
 def CalcTemp(imageDir, baselineName, referenceName, tempName, r2StarName, paramA, paramB):
 
     # Assume the unit for R2* data is s^-1
@@ -159,9 +190,9 @@ def CalcTemp(imageDir, baselineName, referenceName, tempName, r2StarName, paramA
         slicer.mrmlScene.RemoveNode(referenceNode)
 
         
-        
 def CalcScalingFactor(imageDir, echo1Name, echo2Name, ROIName):
-    
+
+    ## NOTE: We assume the T2* in the ROI is long enough to assume that intensities in image1 and image2 are supposed to be similar.
     image1File = echo1Name+'.nrrd'
     image2File = echo2Name+'.nrrd'
     ROIFile = ROIName+'.nrrd'
@@ -173,25 +204,27 @@ def CalcScalingFactor(imageDir, echo1Name, echo2Name, ROIName):
 
         image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
         image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
-        
-        #absVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
-        #slicer.mrmlScene.AddNode(absVolumeNode)
-        #absVolumeNode.SetName('abs')
-        #sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
-        #absVolumeNode = slicer.util.getNode('abs')
-        
-        lslogic1 = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
-        mean1 = lslogic1.labelStats[1,"Mean"]
+        ROI = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkUInt8)
 
-        lslogic2 = LabelStatistics.LabelStatisticsLogic(image2Node, ROINode)
-        mean2 = lslogic2.labelStats[1,"Mean"]
+        # Compute voxel-wise scaling factor
+        scaleImage = sitk.Divide(image1, image2)
 
+        #lslogic1 = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
+        #mean1 = lslogic1.labelStats[1,"Mean"]
+        #
+        #lslogic2 = LabelStatistics.LabelStatisticsLogic(image2Node, ROINode)
+        #mean2 = lslogic2.labelStats[1,"Mean"]
+
+        stats = sitk.LabelStatisticsImageFilter()
+        stats.Execute(scaleImage, ROI)
+        
         slicer.mrmlScene.RemoveNode(image1Node)
         slicer.mrmlScene.RemoveNode(image2Node)
         slicer.mrmlScene.RemoveNode(ROINode)
 
-        ## NOTE: We assume the T2* in the ROI is long enough to assume that intensities in image1 and image2 are supposed to be similar.
-        return (mean1/mean2)
+        scale = stats.GetMean(1)
+        #intensitySD.append(stats.GetSigma(i))
+        return scale
     else:
         print "ERROR: scaling factor"
         return -1.0
@@ -222,19 +255,10 @@ def LoadImageList(imageListCSV):
                 imageList[0].append(int(row[0]))
                 imageList[1].append(float(row[1]))
     return imageList
-            
 
-def GenerateR2StarMaps(imageDir, imageIndices, prefixEcho1, prefixEcho2, TE1, TE2, prefixT2Star, prefixR2Star, scaleFactor):
 
-    ### Parameters
-    #workingDir = '/Users/junichi/Experiments/UTE/UTE-Clinical/ISMRM2015/'
-    #imageIndices = [2, 5, 7, 8, 9, 10, 11, 12]
+def GenerateR2StarMaps(imageDir, imageIndices, prefixEcho1='echo1-', prefixEcho2='echo2-', TE1=0.00007, TE2=0.002, prefixT2Star='t2s-', prefixR2Star='r2s-', scaleFactor=0.7899):
 
-    if TE1 == None:
-        TE1 = 0.00007  ## s
-    if TE2 == None:
-        TE2 = 0.002    ## s
-    
     for idx in imageIndices:
 
         print 'processing %s/%s%03d.nrrd ...' % (imageDir, prefixEcho1, idx)
@@ -263,3 +287,18 @@ def GenerateR2StarMaps(imageDir, imageIndices, prefixEcho1, prefixEcho2, TE1, TE
 
         ## Intensity clibration for echoes 1 and 2
         CalcR2Star(imageDir, fileEcho1, fileEcho2, fileT2Star, fileR2Star, TE1, TE2, scaleFactor)
+
+
+def SampleR2StarPerROI(imageDir, imageIndices, ROIName='roi-label', prefixR2Star='r2s-'):
+
+    result = []
+    
+    for idx in imageIndices:
+
+        print 'processing %s/%s%03d.nrrd ...' % (imageDir, prefixR2Star, idx)
+
+        fileR2Star = '%s%03d' % (prefixR2Star, idx)
+        stat = SampleIntensities(imageDir, fileR2Star, ROIName)
+        result.append(stat)
+    
+    return result

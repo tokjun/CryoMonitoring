@@ -289,16 +289,29 @@ def GenerateR2StarMaps(imageDir, imageIndices, prefixEcho1='echo1-', prefixEcho2
         CalcR2Star(imageDir, fileEcho1, fileEcho2, fileT2Star, fileR2Star, TE1, TE2, scaleFactor)
 
 
-def SampleR2StarPerROI(imageDir, imageIndices, ROIName='roi-label', prefixR2Star='r2s-'):
+def SampleR2StarPerROI(imageDir, imageList, outputFile, ROIName='roi-label', prefixR2Star='r2s-'):
 
+    imageIndices = imageList[0]
+    imageTime = imageList[1]
     result = []
+    i = 0
     
     for idx in imageIndices:
-
         print 'processing %s/%s%03d.nrrd ...' % (imageDir, prefixR2Star, idx)
 
         fileR2Star = '%s%03d' % (prefixR2Star, idx)
         stat = SampleIntensities(imageDir, fileR2Star, ROIName)
-        result.append(stat)
+        row = stat[0]
+        row[0] = imageTime[i]     # Replace intensity for index 0 with because it will not be used.
+        result.append(stat[0])  # Record only mean
+        i = i + 1
     
+    with open(outputFile,'w') as csvfile:
+        csvwriter = csv.writer(csvfile, delimiter=',')
+        header = ['Time']
+        for i in range(1,len(result[0])):
+            header.append('%d' % i)
+        csvwriter.writerows([header])
+        csvwriter.writerows(result)
+        
     return result

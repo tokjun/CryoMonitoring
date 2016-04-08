@@ -5,6 +5,7 @@ from slicer.ScriptedLoadableModule import *
 import logging
 import SimpleITK as sitk
 import sitkUtils
+import math
 
 #
 # ComputeT2Star
@@ -179,7 +180,36 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Scaling Factor: ", self.ScaleSpinBox)
     
     #
-    # check box to trigger taking screen shots for later use in tutorials
+    # Check box to correct noise
+    #
+    self.useNoiseCorrectionFlagCheckBox = qt.QCheckBox()
+    self.useNoiseCorrectionFlagCheckBox.checked = 1
+    self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
+    parametersFormLayout.addRow("Use Noise Correction", self.useNoiseCorrectionFlagCheckBox)
+
+    #
+    # Noise Level
+    #
+    self.Echo1NoiseSpinBox = qt.QDoubleSpinBox()
+    self.Echo1NoiseSpinBox.objectName = 'Echo1NoiseSpinBox'
+    self.Echo1NoiseSpinBox.setMaximum(500.0)
+    self.Echo1NoiseSpinBox.setMinimum(0.0)
+    self.Echo1NoiseSpinBox.setDecimals(6)
+    self.Echo1NoiseSpinBox.setValue(0.0)
+    self.Echo1NoiseSpinBox.setToolTip("Noise level for 1st echo noise correction.")
+    parametersFormLayout.addRow("Noise Level (Echo 1): ", self.Echo1NoiseSpinBox)
+
+    self.Echo2NoiseSpinBox = qt.QDoubleSpinBox()
+    self.Echo2NoiseSpinBox.objectName = 'Echo2NoiseSpinBox'
+    self.Echo2NoiseSpinBox.setMaximum(500.0)
+    self.Echo2NoiseSpinBox.setMinimum(0.0)
+    self.Echo2NoiseSpinBox.setDecimals(6)
+    self.Echo2NoiseSpinBox.setValue(0.0)
+    self.Echo2NoiseSpinBox.setToolTip("Noise level for 1st echo noise correction.")
+    parametersFormLayout.addRow("Noise Level (Echo 2): ", self.Echo2NoiseSpinBox)
+
+    #
+    # check box to use threshold
     #
     self.useThresholdFlagCheckBox = qt.QCheckBox()
     self.useThresholdFlagCheckBox.checked = 1
@@ -224,6 +254,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE2Selector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputT2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.useThresholdFlagCheckBox.connect('toggled(bool)', self.onUseThreshold)
+    self.useNoiseCorrectionFlagCheckBox.connect('toggled(bool)', self.onUseNoiseCorrection)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -243,7 +274,16 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
       self.upperThresholdSpinBox.enabled = True;      
     else:
       self.lowerThresholdSpinBox.enabled = False;      
-      self.upperThresholdSpinBox.enabled = False;      
+      self.upperThresholdSpinBox.enabled = False;
+
+  def onUseNoiseCorrection(self):
+    if self.useNoiseCorrectionFlagCheckBox.checked == True:
+      self.Echo1NoiseSpinBox.enabled = True;
+      self.Echo2NoiseSpinBox.enabled = True;      
+    else:
+      self.Echo1NoiseSpinBox.enabled = False;
+      self.Echo2NoiseSpinBox.enabled = False;      
+    
 
   def onApplyButton(self):
     logic = ComputeT2StarLogic()
@@ -251,15 +291,19 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #imageThreshold = self.imageThresholdSliderWidget.value
     t2name = self.outputT2StarSelector.currentNode().GetName()
     r2name = self.outputR2StarSelector.currentNode().GetName()
+    
+    threshold = None
     if self.useThresholdFlagCheckBox.checked == True:
-      logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
-                self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
-                self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value,
-                self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value)
-    else:
-      logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
-                self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
-                self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value)
+      threshold = [self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value]
+      
+    noiseLevel = None
+    if self.useNoiseCorrectionFlagCheckBox.checked == True:
+      noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
+    
+    logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
+              self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
+              self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value,
+              noiseLevel, threshold)
 
     ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
     ### reset the selector.
@@ -295,10 +339,15 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       return False
     return True
 
-  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, upperThreshold=None, lowerThreshold=None):
+  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, noiseLevel, threshold):
     """
     Run the actual algorithm
     """
+
+    echo1NoiseLevel = 0.0
+    echo2NoiseLevel = 0.0
+    upperThreshold = 0.0
+    lowerThreshold = 0.0
 
     if not self.isValidInputOutputData(inputTE1VolumeNode, inputTE2VolumeNode):
       slicer.util.errorDisplay('Input volume is the same as output volume. Choose a different output volume.')
@@ -309,12 +358,33 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
     imageTE1 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE1VolumeNode.GetID()), sitk.sitkFloat64)
     imageTE2 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE2VolumeNode.GetID()), sitk.sitkFloat64)
 
+    # Noise correction
+    # Echo 1
+    if noiseLevel != None:
+      echo1NoiseLevel = noiseLevel[0]
+      echo2NoiseLevel = noiseLevel[1]
+
+      squareImage1 = sitk.Pow(imageTE1, 2)
+      subImage1 = sitk.Subtract(squareImage1, echo1NoiseLevel*echo1NoiseLevel)
+      subImagePositive1 = sitk.Threshold(subImage1,0.0, float('Inf'), 0.0)
+      imageTE1 = sitk.Sqrt(subImagePositive1)
+
+      squareImage2 = sitk.Pow(imageTE2, 2)
+      subImage2 = sitk.Subtract(squareImage2, echo2NoiseLevel*echo2NoiseLevel)
+      subImagePositive2 = sitk.Threshold(subImage2,0.0, float('Inf'), 0.0)
+      imageTE2 = sitk.Sqrt(subImagePositive2)
+
+
     ## Apply scaling factor
     imageTE2 = sitk.Multiply(imageTE2, scaleFactor)
 
+    if threshold != None:
+      upperThreshold = threshold[0]
+      lowerThreshold = threshold[1]
+
     if outputT2StarVolumeNode:
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))
-      if upperThreshold or lowerThreshold:
+      if threshold != None:
         imageT2StarThreshold = sitk.Threshold(imageT2Star, lowerThreshold, upperThreshold, 0.0)
         sitkUtils.PushToSlicer(imageT2StarThreshold, outputT2StarVolumeNode.GetName(), 0, True)
       else:
@@ -322,7 +392,7 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
     if outputR2StarVolumeNode:
       imageR2Star = sitk.Divide(sitk.Log(sitk.Divide(imageTE2, imageTE1)), TE1-TE2)
-      if upperThreshold or lowerThreshold:
+      if threshold != None:
         imageR2StarThreshold = sitk.Threshold(imageR2Star, lowerThreshold, upperThreshold, 0.0)
         sitkUtils.PushToSlicer(imageR2StarThreshold, outputR2StarVolumeNode.GetName(), 0, True)
       else:

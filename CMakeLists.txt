@@ -19,6 +19,8 @@ include(${Slicer_USE_FILE})
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(ComputeT2Star)
+add_subdirectory(ComputeTemp)
+add_subdirectory(ComputeTempRelativeR2s)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------

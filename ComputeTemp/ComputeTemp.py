@@ -5,6 +5,7 @@ from slicer.ScriptedLoadableModule import *
 import logging
 import SimpleITK as sitk
 import sitkUtils
+import ComputeT2Star
 
 #
 # ComputeTemp
@@ -70,43 +71,42 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     #
     # Parameters Area
     #
-    parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-    parametersCollapsibleButton.text = "Parameters"
-    self.layout.addWidget(parametersCollapsibleButton)
+    ioCollapsibleButton = ctk.ctkCollapsibleButton()
+    ioCollapsibleButton.text = "I/O"
+    self.layout.addWidget(ioCollapsibleButton)
 
     # Layout within the dummy collapsible button
-    parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
+    ioFormLayout = qt.QFormLayout(ioCollapsibleButton)
 
     #
     # input volume selector
     #
-    self.baselineR2StarSelector = slicer.qMRMLNodeComboBox()
-    self.baselineR2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.baselineR2StarSelector.selectNodeUponCreation = True
-    self.baselineR2StarSelector.addEnabled = False
-    self.baselineR2StarSelector.removeEnabled = False
-    self.baselineR2StarSelector.noneEnabled = False
-    self.baselineR2StarSelector.showHidden = False
-    self.baselineR2StarSelector.showChildNodeTypes = False
-    self.baselineR2StarSelector.setMRMLScene( slicer.mrmlScene )
-    self.baselineR2StarSelector.setToolTip( "Pick the baseline R2* map" )
-    parametersFormLayout.addRow("Baseline R2*: ", self.baselineR2StarSelector)
+    self.echo1ImageSelector = slicer.qMRMLNodeComboBox()
+    self.echo1ImageSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
+    self.echo1ImageSelector.selectNodeUponCreation = True
+    self.echo1ImageSelector.addEnabled = False
+    self.echo1ImageSelector.removeEnabled = False
+    self.echo1ImageSelector.noneEnabled = False
+    self.echo1ImageSelector.showHidden = False
+    self.echo1ImageSelector.showChildNodeTypes = False
+    self.echo1ImageSelector.setMRMLScene( slicer.mrmlScene )
+    self.echo1ImageSelector.setToolTip( "Pick the 1st echo image" )
+    ioFormLayout.addRow("Echo 1 Image: ", self.echo1ImageSelector)
 
     #
     # input volume selector
     #
-    self.referenceR2StarSelector = slicer.qMRMLNodeComboBox()
-    self.referenceR2StarSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.referenceR2StarSelector.selectNodeUponCreation = True
-    self.referenceR2StarSelector.addEnabled = False
-    self.referenceR2StarSelector.removeEnabled = False
-    self.referenceR2StarSelector.noneEnabled = False
-    self.referenceR2StarSelector.showHidden = False
-    self.referenceR2StarSelector.showChildNodeTypes = False
-    self.referenceR2StarSelector.setMRMLScene( slicer.mrmlScene )
-    self.referenceR2StarSelector.setToolTip( "Pick the reference R2* map" )
-    parametersFormLayout.addRow("Reference R2*: ", self.referenceR2StarSelector)
-
+    self.echo2ImageSelector = slicer.qMRMLNodeComboBox()
+    self.echo2ImageSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
+    self.echo2ImageSelector.selectNodeUponCreation = True
+    self.echo2ImageSelector.addEnabled = False
+    self.echo2ImageSelector.removeEnabled = False
+    self.echo2ImageSelector.noneEnabled = False
+    self.echo2ImageSelector.showHidden = False
+    self.echo2ImageSelector.showChildNodeTypes = False
+    self.echo2ImageSelector.setMRMLScene( slicer.mrmlScene )
+    self.echo2ImageSelector.setToolTip( "Pick the 2nd echo image" )
+    ioFormLayout.addRow("Echo 2 image: ", self.echo2ImageSelector)
 
     #
     # tempMap volume selector
@@ -121,9 +121,54 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.tempMapSelector.showHidden = False
     self.tempMapSelector.showChildNodeTypes = False
     self.tempMapSelector.setMRMLScene( slicer.mrmlScene )
-    self.tempMapSelector.setToolTip( "Pick the output temperature map." )
-    parametersFormLayout.addRow("T2Star Output Volume: ", self.tempMapSelector)
+    self.tempMapSelector.setToolTip( "Pick the 2nd echo image" )
+    ioFormLayout.addRow("Output (Temp. Map): ", self.tempMapSelector)
 
+
+    #
+    # Parameters Area
+    #
+    parametersCollapsibleButton = ctk.ctkCollapsibleButton()
+    parametersCollapsibleButton.text = "Parameters"
+    self.layout.addWidget(parametersCollapsibleButton)
+    parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
+    
+    #
+    # First TE
+    #
+    self.TE1SpinBox = qt.QDoubleSpinBox()
+    self.TE1SpinBox.objectName = 'TE1SpinBox'
+    self.TE1SpinBox.setMaximum(100.0)
+    self.TE1SpinBox.setMinimum(0.0000)
+    self.TE1SpinBox.setDecimals(8)
+    self.TE1SpinBox.setValue(0.00007)
+    self.TE1SpinBox.setToolTip("TE for Input Volume 1")
+    parametersFormLayout.addRow("TE1 (s): ", self.TE1SpinBox)
+
+    #
+    # Second TE
+    #
+    self.TE2SpinBox = qt.QDoubleSpinBox()
+    self.TE2SpinBox.objectName = 'TE2SpinBox'
+    self.TE2SpinBox.setMaximum(100.0)
+    self.TE2SpinBox.setMinimum(0.0000)
+    self.TE2SpinBox.setDecimals(8)
+    self.TE2SpinBox.setValue(0.002)
+    self.TE2SpinBox.setToolTip("TE for Input Volume 2")
+    parametersFormLayout.addRow("TE2 (s): ", self.TE2SpinBox)
+
+    #
+    # Scale factor for second image
+    #
+    self.scaleFactorSpinBox = qt.QDoubleSpinBox()
+    self.scaleFactorSpinBox.objectName = 'scaleFactorSpinBox'
+    self.scaleFactorSpinBox.setMaximum(10.0)
+    self.scaleFactorSpinBox.setMinimum(0.0)
+    self.scaleFactorSpinBox.setDecimals(8)
+    self.scaleFactorSpinBox.setValue(0.8)
+    self.scaleFactorSpinBox.setToolTip("Scale factor for the second echo")
+    parametersFormLayout.addRow("Scale factor: ", self.scaleFactorSpinBox)
+    
     #
     # Parameter A (Temp = A * R2Star + B)
     #
@@ -132,7 +177,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramASpinBox.setMaximum(100.0)
     self.paramASpinBox.setMinimum(-100.0)
     self.paramASpinBox.setDecimals(8)
-    #self.paramASpinBox.setValue(0.0735)
     self.paramASpinBox.setValue(0.15798)
     self.paramASpinBox.setToolTip("TE for Input Volume 1")
     parametersFormLayout.addRow("Param A: ", self.paramASpinBox)
@@ -145,13 +189,12 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramBSpinBox.setMaximum(100.0)
     self.paramBSpinBox.setMinimum(-100.0)
     self.paramBSpinBox.setDecimals(8)
-    #self.paramBSpinBox.setValue(-4.0588)
     self.paramBSpinBox.setValue(-9.92)
     self.paramBSpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("Param B: ", self.paramBSpinBox)
-
+   
     #
-    # check box to trigger taking screen shots for later use in tutorials
+    # Limit value range? 
     #
     self.useThresholdFlagCheckBox = qt.QCheckBox()
     self.useThresholdFlagCheckBox.checked = 1
@@ -168,7 +211,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.upperThresholdSpinBox.setDecimals(6)
     self.upperThresholdSpinBox.setValue(1000000.0)
     self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
-    parametersFormLayout.addRow("Upper Threshold (ms): ", self.upperThresholdSpinBox)
+    parametersFormLayout.addRow("Upper Threshold: ", self.upperThresholdSpinBox)
 
     #
     # Lower threshold - We set threshold value to limit the range of intensity 
@@ -180,7 +223,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.lowerThresholdSpinBox.setDecimals(6)
     self.lowerThresholdSpinBox.setValue(-1000000.0)
     self.lowerThresholdSpinBox.setToolTip("Lower threshold for the output")
-    parametersFormLayout.addRow("Lower Threshold (ms): ", self.lowerThresholdSpinBox)
+    parametersFormLayout.addRow("Lower Threshold: ", self.lowerThresholdSpinBox)
 
     #
     # Apply Button
@@ -192,8 +235,8 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
 
     # connections
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.baselineR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.referenceR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.echo1ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.echo2ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.tempMapSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.useThresholdFlagCheckBox.connect('toggled(bool)', self.onUseThreshold)
 
@@ -207,7 +250,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
-    self.applyButton.enabled = self.baselineR2StarSelector.currentNode() and self.baselineR2StarSelector.currentNode() and self.tempMapSelector.currentNode()
+    self.applyButton.enabled = self.echo1ImageSelector.currentNode() and self.echo1ImageSelector.currentNode() and self.tempMapSelector.currentNode()
 
   def onUseThreshold(self):
     if self.useThresholdFlagCheckBox.checked == True:
@@ -219,16 +262,18 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
 
   def onApplyButton(self):
     logic = ComputeTempLogic()
-    #enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
-    #imageThreshold = self.imageThresholdSliderWidget.value
     if self.useThresholdFlagCheckBox.checked == True:
-      logic.run(self.baselineR2StarSelector.currentNode(), self.referenceR2StarSelector.currentNode(),
-                self.tempMapSelector.currentNode(), self.paramASpinBox.value, self.paramBSpinBox.value,
+      logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
+                self.tempMapSelector.currentNode(),
+                self.TE1SpinBox.value, self.TE2SpinBox.value, self.scaleFactorSpinBox.value,
+                self.paramASpinBox.value, self.paramBSpinBox.value,
                 self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value)
     else:
-      logic.run(self.baselineR2StarSelector.currentNode(), self.referenceR2StarSelector.currentNode(),
-                self.tempMapSelector.currentNode(), self.paramASpinBox.value, self.paramBSpinBox.value)
-      
+      logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
+                self.tempMapSelector.currentNode(),
+                self.TE1SpinBox.value, self.TE2SpinBox.value, self.scaleFactorSpinBox.value,
+                self.paramASpinBox.value, self.paramBSpinBox.value)
+
 
   def onReload(self, moduleName="ComputeTemp"):
     # Generic reload method for any scripted module.
@@ -243,39 +288,59 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
 
 class ComputeTempLogic(ScriptedLoadableModuleLogic):
 
-  def isValidInputOutputData(self, baselineR2StarVolumeNode, referenceR2StarVolumeNode):
+  def isValidInputOutputData(self, echo1ImageVolumeNode, echo2ImageVolumeNode):
     """Validates if the output is not the same as input
     """
-    if not baselineR2StarVolumeNode:
+    if not echo1ImageVolumeNode:
       logging.debug('isValidInputOutputData failed: no input volume node for ParamA image defined')
       return False
-    if not referenceR2StarVolumeNode:
+    if not echo2ImageVolumeNode:
       logging.debug('isValidInputOutputData failed: no input volume node for ParamB image defined')
       return False
     return True
 
-  def run(self, baselineR2StarVolumeNode, referenceR2StarVolumeNode, tempMapVolumeNode, paramA, paramB, upperThreshold=None, lowerThreshold=None):
+  def run(self, echo1ImageVolumeNode, echo2ImageVolumeNode, tempMapVolumeNode, te1, te2, scaleFactor, paramA, paramB, upperThreshold=None, lowerThreshold=None):
     """
     Run the actual algorithm
     """
 
-    if not self.isValidInputOutputData(baselineR2StarVolumeNode, referenceR2StarVolumeNode):
+    if not self.isValidInputOutputData(echo1ImageVolumeNode, echo2ImageVolumeNode):
       slicer.util.errorDisplay('Input volume is the same as output volume. Choose a different output volume.')
       return False
 
     logging.info('Processing started')
 
-    imageBaseline  = sitk.Cast(sitkUtils.PullFromSlicer(baselineR2StarVolumeNode.GetID()), sitk.sitkFloat64)
-    imageReference = sitk.Cast(sitkUtils.PullFromSlicer(referenceR2StarVolumeNode.GetID()), sitk.sitkFloat64)
+    t2StarVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+    slicer.mrmlScene.AddNode(t2StarVolumeNode)
+    t2StarVolumeNode.SetName("T2Star-temp")
+
+    r2StarVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+    slicer.mrmlScene.AddNode(r2StarVolumeNode)
+    r2StarVolumeNode.SetName("R2Star-temp")
+
+    T2StarLogic = ComputeT2Star.ComputeT2StarLogic()
+    T2StarLogic.run(echo1ImageVolumeNode, echo2ImageVolumeNode, t2StarVolumeNode, r2StarVolumeNode, te1, te2, scaleFactor)
+
+    ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
+    ### reset the selector.
+    t2StarVolumeNode = slicer.util.getNode("T2Star-temp")
+    r2StarVolumeNode = slicer.util.getNode("R2Star-temp")
+
+    # Get R2* image
+    r2StarImage = sitk.Cast(sitkUtils.PullFromSlicer(r2StarVolumeNode.GetID()), sitk.sitkFloat64)
+ 
 
     if tempMapVolumeNode:
-      imageTemp = paramA * (imageReference - imageBaseline) + paramB
+      imageTemp = paramA * (r2StarImage) + paramB
       if upperThreshold or lowerThreshold:
         imageTempThreshold = sitk.Threshold(imageTemp, lowerThreshold, upperThreshold, 0.0)
         sitkUtils.PushToSlicer(imageTempThreshold, tempMapVolumeNode.GetName(), 0, True)
       else:
         sitkUtils.PushToSlicer(imageTemp, tempMapVolumeNode.GetName(), 0, True)
 
+    slicer.mrmlScene.RemoveNode(t2StarVolumeNode)
+    slicer.mrmlScene.RemoveNode(r2StarVolumeNode)
+    
     logging.info('Processing completed')
 
     return True

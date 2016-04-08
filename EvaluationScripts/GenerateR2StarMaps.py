@@ -75,7 +75,9 @@ def CorrectNoise(inputName, outputName, noiseLevel):
         inputImage = sitk.Cast(sitkUtils.PullFromSlicer(inputNode.GetID()), sitk.sitkFloat32)
         squareImage = sitk.Pow(inputImage, 2)
         subImage = sitk.Subtract(squareImage, noiseLevel*noiseLevel)
-        correctedImage = sitk.Sqrt(subImage)
+        ## Make sure negative pixels are set to zero
+        subImagePositive = sitk.Threshold(subImage,0.0, float('Inf'), 0.0)
+        correctedImage = sitk.Sqrt(subImagePositive)
 
         correctedVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
         slicer.mrmlScene.AddNode(correctedVolumeNode)

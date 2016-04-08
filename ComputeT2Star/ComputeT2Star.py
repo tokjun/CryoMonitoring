@@ -166,7 +166,6 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.TE2SpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("TE2 (s): ", self.TE2SpinBox)
 
-
     #
     # Scaling Factor
     #
@@ -178,13 +177,43 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.ScaleSpinBox.setValue(1.000)
     self.ScaleSpinBox.setToolTip("Scaling factor to adjust magnitude of volume 2.")
     parametersFormLayout.addRow("Scaling Factor: ", self.ScaleSpinBox)
+
+    #
+    # Echo 1/2 signal lower input threshold
+    #
+    self.Echo1InputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.Echo1InputThresholdSpinBox.objectName = 'Echo1InputThresholdSpinBox'
+    self.Echo1InputThresholdSpinBox.setMaximum(65536.000)
+    self.Echo1InputThresholdSpinBox.setMinimum(0.000)
+    self.Echo1InputThresholdSpinBox.setDecimals(6)
+    self.Echo1InputThresholdSpinBox.setValue(0.000)
+    self.Echo1InputThresholdSpinBox.setToolTip("Lower input threshold for echo 1.")
+    parametersFormLayout.addRow("Lower Input Threshold (Echo 1): ", self.Echo1InputThresholdSpinBox)
+
+    self.Echo2InputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.Echo2InputThresholdSpinBox.objectName = 'Echo2InputThresholdSpinBox'
+    self.Echo2InputThresholdSpinBox.setMaximum(65536.000)
+    self.Echo2InputThresholdSpinBox.setMinimum(0.000)
+    self.Echo2InputThresholdSpinBox.setDecimals(6)
+    self.Echo2InputThresholdSpinBox.setValue(0.000)
+    self.Echo2InputThresholdSpinBox.setToolTip("Lower input threshold for echo 2.")
+    parametersFormLayout.addRow("Lower Input Threshold (Echo 2): ", self.Echo2InputThresholdSpinBox)
+
+    self.MinT2sSpinBox = qt.QDoubleSpinBox()
+    self.MinT2sSpinBox.objectName = 'MinT2sSpinBox'
+    self.MinT2sSpinBox.setMinimum(1.000)
+    self.MinT2sSpinBox.setMinimum(0.000)
+    self.MinT2sSpinBox.setDecimals(6)
+    self.MinT2sSpinBox.setValue(0.00125)
+    self.MinT2sSpinBox.setToolTip("Minimum T2* for output (maximum R2* = 1 / (minimum T2*)).")
+    parametersFormLayout.addRow("Minimum T2* for output (s): ", self.MinT2sSpinBox)
     
     #
     # Check box to correct noise
     #
     self.useNoiseCorrectionFlagCheckBox = qt.QCheckBox()
     self.useNoiseCorrectionFlagCheckBox.checked = 1
-    self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
+    self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, correct noise based on the estimated noise level.")
     parametersFormLayout.addRow("Use Noise Correction", self.useNoiseCorrectionFlagCheckBox)
 
     #
@@ -211,34 +240,34 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     #
     # check box to use threshold
     #
-    self.useThresholdFlagCheckBox = qt.QCheckBox()
-    self.useThresholdFlagCheckBox.checked = 1
-    self.useThresholdFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
-    parametersFormLayout.addRow("Use Threshold", self.useThresholdFlagCheckBox)
+    self.useOutputThresholdFlagCheckBox = qt.QCheckBox()
+    self.useOutputThresholdFlagCheckBox.checked = 1
+    self.useOutputThresholdFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
+    parametersFormLayout.addRow("Use OutputThreshold", self.useOutputThresholdFlagCheckBox)
 
     #
     # Upper threshold - We set threshold value to limit the range of intensity 
     #
-    self.upperThresholdSpinBox = qt.QDoubleSpinBox()
-    self.upperThresholdSpinBox.objectName = 'upperThresholdSpinBox'
-    self.upperThresholdSpinBox.setMaximum(1000000.0)
-    self.upperThresholdSpinBox.setMinimum(-1000000.0)
-    self.upperThresholdSpinBox.setDecimals(6)
-    self.upperThresholdSpinBox.setValue(1000000.0)
-    self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
-    parametersFormLayout.addRow("Upper Threshold (s): ", self.upperThresholdSpinBox)
+    self.upperOutputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.upperOutputThresholdSpinBox.objectName = 'upperOutputThresholdSpinBox'
+    self.upperOutputThresholdSpinBox.setMaximum(1000000.0)
+    self.upperOutputThresholdSpinBox.setMinimum(-1000000.0)
+    self.upperOutputThresholdSpinBox.setDecimals(6)
+    self.upperOutputThresholdSpinBox.setValue(1000000.0)
+    self.upperOutputThresholdSpinBox.setToolTip("Upper threshold for the output")
+    parametersFormLayout.addRow("Upper OutputThreshold (s): ", self.upperOutputThresholdSpinBox)
 
     #
     # Lower threshold - We set threshold value to limit the range of intensity 
     #
-    self.lowerThresholdSpinBox = qt.QDoubleSpinBox()
-    self.lowerThresholdSpinBox.objectName = 'lowerThresholdSpinBox'
-    self.lowerThresholdSpinBox.setMaximum(1000000.0)
-    self.lowerThresholdSpinBox.setMinimum(-1000000.0)
-    self.lowerThresholdSpinBox.setDecimals(6)
-    self.lowerThresholdSpinBox.setValue(-1000000.0)
-    self.lowerThresholdSpinBox.setToolTip("Lower threshold for the output")
-    parametersFormLayout.addRow("Lower Threshold (s): ", self.lowerThresholdSpinBox)
+    self.lowerOutputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.lowerOutputThresholdSpinBox.objectName = 'lowerOutputThresholdSpinBox'
+    self.lowerOutputThresholdSpinBox.setMaximum(1000000.0)
+    self.lowerOutputThresholdSpinBox.setMinimum(-1000000.0)
+    self.lowerOutputThresholdSpinBox.setDecimals(6)
+    self.lowerOutputThresholdSpinBox.setValue(-1000000.0)
+    self.lowerOutputThresholdSpinBox.setToolTip("Lower threshold for the output")
+    parametersFormLayout.addRow("Lower OutputThreshold (s): ", self.lowerOutputThresholdSpinBox)
 
     #
     # Apply Button
@@ -253,7 +282,8 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE1Selector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.inputTE2Selector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputT2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.useThresholdFlagCheckBox.connect('toggled(bool)', self.onUseThreshold)
+    self.outputR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.useOutputThresholdFlagCheckBox.connect('toggled(bool)', self.onUseOutputThreshold)
     self.useNoiseCorrectionFlagCheckBox.connect('toggled(bool)', self.onUseNoiseCorrection)
 
     # Add vertical spacer
@@ -268,13 +298,13 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
   def onSelect(self):
     self.applyButton.enabled = self.inputTE1Selector.currentNode() and self.inputTE1Selector.currentNode() and (self.outputT2StarSelector.currentNode() or self.outputR2StarSelector.currentNode())
 
-  def onUseThreshold(self):
-    if self.useThresholdFlagCheckBox.checked == True:
-      self.lowerThresholdSpinBox.enabled = True;      
-      self.upperThresholdSpinBox.enabled = True;      
+  def onUseOutputThreshold(self):
+    if self.useOutputThresholdFlagCheckBox.checked == True:
+      self.lowerOutputThresholdSpinBox.enabled = True;      
+      self.upperOutputThresholdSpinBox.enabled = True;      
     else:
-      self.lowerThresholdSpinBox.enabled = False;      
-      self.upperThresholdSpinBox.enabled = False;
+      self.lowerOutputThresholdSpinBox.enabled = False;      
+      self.upperOutputThresholdSpinBox.enabled = False;
 
   def onUseNoiseCorrection(self):
     if self.useNoiseCorrectionFlagCheckBox.checked == True:
@@ -288,13 +318,21 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     logic = ComputeT2StarLogic()
     #enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
-    #imageThreshold = self.imageThresholdSliderWidget.value
-    t2name = self.outputT2StarSelector.currentNode().GetName()
-    r2name = self.outputR2StarSelector.currentNode().GetName()
+    #imageOutputThreshold = self.imageOutputThresholdSliderWidget.value
+    t2name = ''
+    r2name = ''
+    if self.outputT2StarSelector.currentNode():
+      t2name = self.outputT2StarSelector.currentNode().GetName()
+    if self.outputR2StarSelector.currentNode():
+      r2name = self.outputR2StarSelector.currentNode().GetName()
+      
+    inputThreshold = [self.Echo1InputThresholdSpinBox.value, self.Echo2InputThresholdSpinBox.value]
     
-    threshold = None
-    if self.useThresholdFlagCheckBox.checked == True:
-      threshold = [self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value]
+    minT2s = self.MinT2sSpinBox.value
+    
+    outputThreshold = None
+    if self.useOutputThresholdFlagCheckBox.checked == True:
+      outputThreshold = [self.upperOutputThresholdSpinBox.value, self.lowerOutputThresholdSpinBox.value]
       
     noiseLevel = None
     if self.useNoiseCorrectionFlagCheckBox.checked == True:
@@ -303,7 +341,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
               self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
               self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value,
-              noiseLevel, threshold)
+              noiseLevel, outputThreshold, inputThreshold, minT2s)
 
     ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
     ### reset the selector.
@@ -339,15 +377,15 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       return False
     return True
 
-  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, noiseLevel, threshold):
+  def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, noiseLevel, outputThreshold, inputThreshold, minT2s):
     """
     Run the actual algorithm
     """
 
     echo1NoiseLevel = 0.0
     echo2NoiseLevel = 0.0
-    upperThreshold = 0.0
-    lowerThreshold = 0.0
+    upperOutputThreshold = 0.0
+    lowerOutputThreshold = 0.0
 
     if not self.isValidInputOutputData(inputTE1VolumeNode, inputTE2VolumeNode):
       slicer.util.errorDisplay('Input volume is the same as output volume. Choose a different output volume.')
@@ -366,34 +404,58 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
       squareImage1 = sitk.Pow(imageTE1, 2)
       subImage1 = sitk.Subtract(squareImage1, echo1NoiseLevel*echo1NoiseLevel)
-      subImagePositive1 = sitk.Threshold(subImage1,0.0, float('Inf'), 0.0)
+      subImagePositive1 = sitk.OutputThreshold(subImage1,0.0, float('Inf'), 0.0)
       imageTE1 = sitk.Sqrt(subImagePositive1)
 
       squareImage2 = sitk.Pow(imageTE2, 2)
       subImage2 = sitk.Subtract(squareImage2, echo2NoiseLevel*echo2NoiseLevel)
-      subImagePositive2 = sitk.Threshold(subImage2,0.0, float('Inf'), 0.0)
+      subImagePositive2 = sitk.OutputThreshold(subImage2,0.0, float('Inf'), 0.0)
       imageTE2 = sitk.Sqrt(subImagePositive2)
+    else:
+      # Simply remove negative values (not needed?)
+      imageTE1 = sitk.Threshold(imageTE1,0.0, float('Inf'), 0.0)
+      imageTE2 = sitk.Threshold(imageTE2,0.0, float('Inf'), 0.0)
 
-
-    ## Apply scaling factor
+    ## Apply scaling factor to the second echo
     imageTE2 = sitk.Multiply(imageTE2, scaleFactor)
 
-    if threshold != None:
-      upperThreshold = threshold[0]
-      lowerThreshold = threshold[1]
+    ## Create mask to exclude invalid pixels
+    #  Criteria for validation
+    #   1. First or second echo signal is less than the input threshold
+    #   2. Second echo signal is greater than the first
+    mask1 = sitk.BinaryThreshold(imageTE1, inputThreshold[0], float('Inf'), 1, 0) 
+    mask2 = sitk.BinaryThreshold(imageTE2, inputThreshold[1], float('Inf'), 1, 0) 
+    mask3 = sitk.Greater(imageTE2, imageTE1, 1, 0)
+    mask = sitk.And(mask1, mask2)
+    mask = sitk.And(mask, mask3)
+
+    imask = sitk.Not(mask)
+    imaskFloat = sitk.Cast(imask, sitk.sitkFloat64)
+    imaskFillT2s = imaskFloat * minT2s
+    imaskFillR2s = 0.0
+    if minT2s > 0:
+      imaskFillR2s = imaskFloat * (1/minT2s)
+
+    if outputThreshold != None:
+      upperOutputThreshold = outputThreshold[0]
+      lowerOutputThreshold = outputThreshold[1]
 
     if outputT2StarVolumeNode:
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))
-      if threshold != None:
-        imageT2StarThreshold = sitk.Threshold(imageT2Star, lowerThreshold, upperThreshold, 0.0)
+      imageT2Star = sitk.Mask(imageT2Star, mask)
+      imageT2Star = sitk.Add(imageT2Star, imaskFillT2s)
+      if outputThreshold != None:
+        imageT2StarThreshold = sitk.Threshold(imageT2Star, lowerOutputThreshold, upperOutputThreshold, 0.0)
         sitkUtils.PushToSlicer(imageT2StarThreshold, outputT2StarVolumeNode.GetName(), 0, True)
       else:
         sitkUtils.PushToSlicer(imageT2Star, outputT2StarVolumeNode.GetName(), 0, True)
 
     if outputR2StarVolumeNode:
       imageR2Star = sitk.Divide(sitk.Log(sitk.Divide(imageTE2, imageTE1)), TE1-TE2)
-      if threshold != None:
-        imageR2StarThreshold = sitk.Threshold(imageR2Star, lowerThreshold, upperThreshold, 0.0)
+      imageR2Star = sitk.Mask(imageR2Star, mask)
+      imageR2Star = sitk.Add(imageR2Star, imaskFillR2s)
+      if outputThreshold != None:
+        imageR2StarThreshold = sitk.Threshold(imageR2Star, lowerOutputThreshold, upperOutputThreshold, 0.0)
         sitkUtils.PushToSlicer(imageR2StarThreshold, outputR2StarVolumeNode.GetName(), 0, True)
       else:
         sitkUtils.PushToSlicer(imageR2Star, outputR2StarVolumeNode.GetName(), 0, True)

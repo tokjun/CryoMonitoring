@@ -107,7 +107,6 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
     self.referenceR2StarSelector.setToolTip( "Pick the reference R2* map" )
     parametersFormLayout.addRow("Reference R2*: ", self.referenceR2StarSelector)
 
-
     #
     # tempMap volume selector
     #
@@ -122,7 +121,7 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
     self.tempMapSelector.showChildNodeTypes = False
     self.tempMapSelector.setMRMLScene( slicer.mrmlScene )
     self.tempMapSelector.setToolTip( "Pick the output temperature map." )
-    parametersFormLayout.addRow("T2Star Output Volume: ", self.tempMapSelector)
+    parametersFormLayout.addRow("Temp. Map: ", self.tempMapSelector)
 
     #
     # Parameter A (Temp = A * R2Star + B)
@@ -133,7 +132,7 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
     self.paramASpinBox.setMinimum(-100.0)
     self.paramASpinBox.setDecimals(8)
     #self.paramASpinBox.setValue(0.0735)
-    self.paramASpinBox.setValue(0.15798)
+    self.paramASpinBox.setValue(-0.1282)
     self.paramASpinBox.setToolTip("TE for Input Volume 1")
     parametersFormLayout.addRow("Param A: ", self.paramASpinBox)
 
@@ -146,41 +145,62 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
     self.paramBSpinBox.setMinimum(-100.0)
     self.paramBSpinBox.setDecimals(8)
     #self.paramBSpinBox.setValue(-4.0588)
-    self.paramBSpinBox.setValue(-9.92)
+    self.paramBSpinBox.setValue(43.8461)
     self.paramBSpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("Param B: ", self.paramBSpinBox)
 
     #
-    # check box to trigger taking screen shots for later use in tutorials
+    # Use input threshold
     #
-    self.useThresholdFlagCheckBox = qt.QCheckBox()
-    self.useThresholdFlagCheckBox.checked = 1
-    self.useThresholdFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
-    parametersFormLayout.addRow("Use Threshold", self.useThresholdFlagCheckBox)
+    self.useInputThresholdFlagCheckBox = qt.QCheckBox()
+    self.useInputThresholdFlagCheckBox.checked = 1
+    self.useInputThresholdFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
+    parametersFormLayout.addRow("Use InputThreshold", self.useInputThresholdFlagCheckBox)
     
     #
     # Upper threshold - We set threshold value to limit the range of intensity 
     #
-    self.upperThresholdSpinBox = qt.QDoubleSpinBox()
-    self.upperThresholdSpinBox.objectName = 'upperThresholdSpinBox'
-    self.upperThresholdSpinBox.setMaximum(1000000.0)
-    self.upperThresholdSpinBox.setMinimum(-1000000.0)
-    self.upperThresholdSpinBox.setDecimals(6)
-    self.upperThresholdSpinBox.setValue(1000000.0)
-    self.upperThresholdSpinBox.setToolTip("Upper threshold for the output")
-    parametersFormLayout.addRow("Upper Threshold (ms): ", self.upperThresholdSpinBox)
+    self.upperInputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.upperInputThresholdSpinBox.objectName = 'upperInputThresholdSpinBox'
+    self.upperInputThresholdSpinBox.setMaximum(1000000.0)
+    self.upperInputThresholdSpinBox.setMinimum(-1000000.0)
+    self.upperInputThresholdSpinBox.setDecimals(6)
+    self.upperInputThresholdSpinBox.setValue(800.0)
+    self.upperInputThresholdSpinBox.setToolTip("Upper threshold for the output")
+    parametersFormLayout.addRow("Upper InputThreshold (ms): ", self.upperInputThresholdSpinBox)
+
+
+    #
+    # Use output threshold
+    #
+    self.useOutputThresholdFlagCheckBox = qt.QCheckBox()
+    self.useOutputThresholdFlagCheckBox.checked = 1
+    self.useOutputThresholdFlagCheckBox.setToolTip("If checked, apply the threshold to limit the pixel value ranges.")
+    parametersFormLayout.addRow("Use OutputThreshold", self.useOutputThresholdFlagCheckBox)
+    
+    #
+    # Upper threshold - We set threshold value to limit the range of intensity 
+    #
+    self.upperOutputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.upperOutputThresholdSpinBox.objectName = 'upperOutputThresholdSpinBox'
+    self.upperOutputThresholdSpinBox.setMaximum(1000000.0)
+    self.upperOutputThresholdSpinBox.setMinimum(-1000000.0)
+    self.upperOutputThresholdSpinBox.setDecimals(6)
+    self.upperOutputThresholdSpinBox.setValue(1000000.0)
+    self.upperOutputThresholdSpinBox.setToolTip("Upper threshold for the output")
+    parametersFormLayout.addRow("Upper OutputThreshold (deg): ", self.upperOutputThresholdSpinBox)
 
     #
     # Lower threshold - We set threshold value to limit the range of intensity 
     #
-    self.lowerThresholdSpinBox = qt.QDoubleSpinBox()
-    self.lowerThresholdSpinBox.objectName = 'lowerThresholdSpinBox'
-    self.lowerThresholdSpinBox.setMaximum(1000000.0)
-    self.lowerThresholdSpinBox.setMinimum(-1000000.0)
-    self.lowerThresholdSpinBox.setDecimals(6)
-    self.lowerThresholdSpinBox.setValue(-1000000.0)
-    self.lowerThresholdSpinBox.setToolTip("Lower threshold for the output")
-    parametersFormLayout.addRow("Lower Threshold (ms): ", self.lowerThresholdSpinBox)
+    self.lowerOutputThresholdSpinBox = qt.QDoubleSpinBox()
+    self.lowerOutputThresholdSpinBox.objectName = 'lowerOutputThresholdSpinBox'
+    self.lowerOutputThresholdSpinBox.setMaximum(1000000.0)
+    self.lowerOutputThresholdSpinBox.setMinimum(-1000000.0)
+    self.lowerOutputThresholdSpinBox.setDecimals(6)
+    self.lowerOutputThresholdSpinBox.setValue(-1000000.0)
+    self.lowerOutputThresholdSpinBox.setToolTip("Lower threshold for the output")
+    parametersFormLayout.addRow("Lower OutputThreshold (deg): ", self.lowerOutputThresholdSpinBox)
 
     #
     # Apply Button
@@ -195,7 +215,7 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
     self.baselineR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.referenceR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.tempMapSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.useThresholdFlagCheckBox.connect('toggled(bool)', self.onUseThreshold)
+    self.useOutputThresholdFlagCheckBox.connect('toggled(bool)', self.onUseOutputThreshold)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -209,25 +229,38 @@ class ComputeTempRelativeR2sWidget(ScriptedLoadableModuleWidget):
   def onSelect(self):
     self.applyButton.enabled = self.baselineR2StarSelector.currentNode() and self.baselineR2StarSelector.currentNode() and self.tempMapSelector.currentNode()
 
-  def onUseThreshold(self):
-    if self.useThresholdFlagCheckBox.checked == True:
-      self.lowerThresholdSpinBox.enabled = True;      
-      self.upperThresholdSpinBox.enabled = True;      
+  def onUseOutputThreshold(self):
+    if self.useOutputThresholdFlagCheckBox.checked == True:
+      self.lowerOutputThresholdSpinBox.enabled = True;      
+      self.upperOutputThresholdSpinBox.enabled = True;      
     else:
-      self.lowerThresholdSpinBox.enabled = False;      
-      self.upperThresholdSpinBox.enabled = False;      
+      self.lowerOutputThresholdSpinBox.enabled = False;      
+      self.upperOutputThresholdSpinBox.enabled = False;      
 
   def onApplyButton(self):
     logic = ComputeTempRelativeR2sLogic()
     #enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
-    #imageThreshold = self.imageThresholdSliderWidget.value
-    if self.useThresholdFlagCheckBox.checked == True:
-      logic.run(self.baselineR2StarSelector.currentNode(), self.referenceR2StarSelector.currentNode(),
-                self.tempMapSelector.currentNode(), self.paramASpinBox.value, self.paramBSpinBox.value,
-                self.upperThresholdSpinBox.value, self.lowerThresholdSpinBox.value)
-    else:
-      logic.run(self.baselineR2StarSelector.currentNode(), self.referenceR2StarSelector.currentNode(),
-                self.tempMapSelector.currentNode(), self.paramASpinBox.value, self.paramBSpinBox.value)
+    #imageOutputThreshold = self.imageOutputThresholdSliderWidget.value
+
+    tempMapName = ''
+
+    if self.tempMapSelector.currentNode():
+      tempMapName = self.tempMapSelector.currentNode().GetName()
+
+    inputThreshold = None
+    if self.useInputThresholdFlagCheckBox.checked == True:
+      inputThreshold = [0, self.upperInputThresholdSpinBox.value]
+
+    outputThreshold = None
+    if self.useOutputThresholdFlagCheckBox.checked == True:
+      outputThreshold = [self.lowerOutputThresholdSpinBox.value, self.upperOutputThresholdSpinBox.value]
+
+    logic.run(self.baselineR2StarSelector.currentNode(), self.referenceR2StarSelector.currentNode(),
+              self.tempMapSelector.currentNode(), self.paramASpinBox.value, self.paramBSpinBox.value,
+              outputThreshold, inputThreshold)
+
+    tempMapNode = slicer.util.getNode(tempMapName)
+    self.tempMapSelector.setCurrentNode(tempMapNode)
       
 
   def onReload(self, moduleName="ComputeTempRelativeR2s"):
@@ -254,7 +287,7 @@ class ComputeTempRelativeR2sLogic(ScriptedLoadableModuleLogic):
       return False
     return True
 
-  def run(self, baselineR2StarVolumeNode, referenceR2StarVolumeNode, tempMapVolumeNode, paramA, paramB, upperThreshold=None, lowerThreshold=None):
+  def run(self, baselineR2StarVolumeNode, referenceR2StarVolumeNode, tempMapVolumeNode, paramA, paramB, outputThreshold, inputThreshold):
     """
     Run the actual algorithm
     """
@@ -270,9 +303,22 @@ class ComputeTempRelativeR2sLogic(ScriptedLoadableModuleLogic):
 
     if tempMapVolumeNode:
       imageTemp = paramA * (imageReference - imageBaseline) + paramB
-      if upperThreshold or lowerThreshold:
-        imageTempThreshold = sitk.Threshold(imageTemp, lowerThreshold, upperThreshold, 0.0)
-        sitkUtils.PushToSlicer(imageTempThreshold, tempMapVolumeNode.GetName(), 0, True)
+
+      if inputThreshold != None:
+        mask1 = sitk.BinaryThreshold(imageBaseline, 0.0, inputThreshold[1] - 10e-6, 1, 0) 
+        mask2 = sitk.BinaryThreshold(imageReference, 0.0, inputThreshold[1] - 10e-6, 1, 0) 
+        mask = sitk.And(mask1, mask2)
+        imageTemp = sitk.Mask(imageTemp, mask)
+        imask = sitk.Not(mask)
+        imaskFloat = sitk.Cast(imask, sitk.sitkFloat64)
+        imaskFillTemp = imaskFloat * (-40.0)
+        imageTemp = imageTemp + imaskFillTemp ## TODO: The lower temperature limit
+
+      if outputThreshold != None:
+        lowerOutputThreshold = outputThreshold[0]
+        upperOutputThreshold = outputThreshold[1]
+        imageTempOutputThreshold = sitk.Threshold(imageTemp, lowerOutputThreshold, upperOutputThreshold, 0.0)
+        sitkUtils.PushToSlicer(imageTempOutputThreshold, tempMapVolumeNode.GetName(), 0, True)
       else:
         sitkUtils.PushToSlicer(imageTemp, tempMapVolumeNode.GetName(), 0, True)
 

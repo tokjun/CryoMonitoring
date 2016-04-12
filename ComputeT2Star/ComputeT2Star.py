@@ -332,7 +332,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     
     outputThreshold = None
     if self.useOutputThresholdFlagCheckBox.checked == True:
-      outputThreshold = [self.upperOutputThresholdSpinBox.value, self.lowerOutputThresholdSpinBox.value]
+      outputThreshold = [self.lowerOutputThresholdSpinBox.value, self.upperOutputThresholdSpinBox.value]
       
     noiseLevel = None
     if self.useNoiseCorrectionFlagCheckBox.checked == True:
@@ -404,12 +404,12 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
       squareImage1 = sitk.Pow(imageTE1, 2)
       subImage1 = sitk.Subtract(squareImage1, echo1NoiseLevel*echo1NoiseLevel)
-      subImagePositive1 = sitk.OutputThreshold(subImage1,0.0, float('Inf'), 0.0)
+      subImagePositive1 = sitk.Threshold(subImage1,0.0, float('Inf'), 0.0)
       imageTE1 = sitk.Sqrt(subImagePositive1)
 
       squareImage2 = sitk.Pow(imageTE2, 2)
       subImage2 = sitk.Subtract(squareImage2, echo2NoiseLevel*echo2NoiseLevel)
-      subImagePositive2 = sitk.OutputThreshold(subImage2,0.0, float('Inf'), 0.0)
+      subImagePositive2 = sitk.Threshold(subImage2,0.0, float('Inf'), 0.0)
       imageTE2 = sitk.Sqrt(subImagePositive2)
     else:
       # Simply remove negative values (not needed?)
@@ -437,8 +437,9 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       imaskFillR2s = imaskFloat * (1/minT2s)
 
     if outputThreshold != None:
-      upperOutputThreshold = outputThreshold[0]
-      lowerOutputThreshold = outputThreshold[1]
+      lowerOutputThreshold = outputThreshold[0]
+      upperOutputThreshold = outputThreshold[1]
+
 
     if outputT2StarVolumeNode:
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))

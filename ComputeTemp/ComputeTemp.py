@@ -300,7 +300,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     minT2s = self.MinT2sSpinBox.value
 
     if self.useOutputThresholdFlagCheckBox.checked == True:
-      outputThreshold = [self.upperOutputThresholdSpinBox.value, self.lowerOutputThresholdSpinBox.value]
+      outputThreshold = [self.lowerOutputThresholdSpinBox.value, self.upperOutputThresholdSpinBox.value]
 
     logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
               self.tempMapSelector.currentNode(),
@@ -370,6 +370,7 @@ class ComputeTempLogic(ScriptedLoadableModuleLogic):
         # computed accurately.
         #imageTemp = sitk.Mask(imageTemp, mask)
         #imageTemp = sitk.Add(imageTemp, nmask)
+        print outputThreshold
         lowerOutputThreshold = outputThreshold[0]
         upperOutputThreshold = outputThreshold[1]
         imageTempThreshold = sitk.Threshold(imageTemp, lowerOutputThreshold, upperOutputThreshold, 0.0)

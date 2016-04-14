@@ -423,18 +423,25 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
     #  Criteria for validation
     #   1. First or second echo signal is less than the input threshold
     #   2. Second echo signal is greater than the first
-    mask1 = sitk.BinaryThreshold(imageTE1, inputThreshold[0], float('Inf'), 1, 0) 
-    mask2 = sitk.BinaryThreshold(imageTE2, inputThreshold[1], float('Inf'), 1, 0) 
-    mask3 = sitk.Greater(imageTE2, imageTE1, 1, 0)
-    mask = sitk.And(mask1, mask2)
-    mask = sitk.And(mask, mask3)
+    
+    mask = None
+    imaskFillT2s = None
+    imaskFillR2s = None
 
-    imask = sitk.Not(mask)
-    imaskFloat = sitk.Cast(imask, sitk.sitkFloat64)
-    imaskFillT2s = imaskFloat * minT2s
-    imaskFillR2s = 0.0
-    if minT2s > 0:
-      imaskFillR2s = imaskFloat * (1/minT2s)
+    if inputThreshold != None:
+      mask1 = sitk.BinaryThreshold(imageTE1, inputThreshold[0], float('Inf'), 1, 0) 
+      mask2 = sitk.BinaryThreshold(imageTE2, inputThreshold[1], float('Inf'), 1, 0) 
+      mask3 = sitk.Greater(imageTE2, imageTE1, 1, 0)
+      mask = sitk.And(mask1, mask2)
+      mask = sitk.And(mask, mask3)
+
+      imask = sitk.Not(mask)
+      imaskFloat = sitk.Cast(imask, sitk.sitkFloat64)
+      imaskFillT2s = imaskFloat * minT2s
+      imaskFillR2s = 0.0
+
+      if minT2s > 0:
+        imaskFillR2s = imaskFloat * (1/minT2s)
 
     if outputThreshold != None:
       lowerOutputThreshold = outputThreshold[0]
@@ -443,8 +450,9 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
     if outputT2StarVolumeNode:
       imageT2Star = sitk.Divide(TE1-TE2, sitk.Log(sitk.Divide(imageTE2, imageTE1)))
-      imageT2Star = sitk.Mask(imageT2Star, mask)
-      imageT2Star = sitk.Add(imageT2Star, imaskFillT2s)
+      if inputThreshold != None:
+        imageT2Star = sitk.Mask(imageT2Star, mask)
+        imageT2Star = sitk.Add(imageT2Star, imaskFillT2s)
       if outputThreshold != None:
         imageT2StarThreshold = sitk.Threshold(imageT2Star, lowerOutputThreshold, upperOutputThreshold, 0.0)
         sitkUtils.PushToSlicer(imageT2StarThreshold, outputT2StarVolumeNode.GetName(), 0, True)
@@ -453,8 +461,9 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
 
     if outputR2StarVolumeNode:
       imageR2Star = sitk.Divide(sitk.Log(sitk.Divide(imageTE2, imageTE1)), TE1-TE2)
-      imageR2Star = sitk.Mask(imageR2Star, mask)
-      imageR2Star = sitk.Add(imageR2Star, imaskFillR2s)
+      if inputThreshold != None:
+        imageR2Star = sitk.Mask(imageR2Star, mask)
+        imageR2Star = sitk.Add(imageR2Star, imaskFillR2s)
       if outputThreshold != None:
         imageR2StarThreshold = sitk.Threshold(imageR2Star, lowerOutputThreshold, upperOutputThreshold, 0.0)
         sitkUtils.PushToSlicer(imageR2StarThreshold, outputR2StarVolumeNode.GetName(), 0, True)

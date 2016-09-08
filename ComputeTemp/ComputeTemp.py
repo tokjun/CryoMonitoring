@@ -6,6 +6,8 @@ import logging
 import SimpleITK as sitk
 import sitkUtils
 import ComputeT2Star
+import LabelStatistics
+import numpy
 
 #
 # ComputeTemp
@@ -21,7 +23,7 @@ class ComputeTemp(ScriptedLoadableModule):
     self.parent.title = "ComputeTemp" # TODO make this more human readable by adding spaces
     self.parent.categories = ["IGT"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Junichi Tokuda (Brigham and Women's Hospital)"] # replace with "Firstname Lastname (Organization)"
+    self.parent.contributors = ["Junichi Tokuda (Brigham and Women's Hospital)"] # replace with "Firvstname Lastname (Organization)"
     self.parent.helpText = """
     This is an example of scripted loadable module bundled in an extension.
     It performs a simple thresholding on the input volume and optionally captures a screenshot.
@@ -109,6 +111,22 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     ioFormLayout.addRow("Echo 2 image: ", self.echo2ImageSelector)
 
     #
+    # reference ROI selector
+    #
+    self.referenceROISelector = slicer.qMRMLNodeComboBox()
+    self.referenceROISelector.nodeTypes = ( ("vtkMRMLLabelMapVolumeNode"), "" )
+    self.referenceROISelector.selectNodeUponCreation = False
+    self.referenceROISelector.addEnabled = True
+    self.referenceROISelector.removeEnabled = True
+    self.referenceROISelector.noneEnabled = True
+    self.referenceROISelector.renameEnabled = True
+    self.referenceROISelector.showHidden = False
+    self.referenceROISelector.showChildNodeTypes = False
+    self.referenceROISelector.setMRMLScene( slicer.mrmlScene )
+    self.referenceROISelector.setToolTip( "Reference ROI for scaling factor and noise estimation" )
+    ioFormLayout.addRow("Reference ROI: ", self.referenceROISelector)
+
+    #
     # tempMap volume selector
     #
     self.tempMapSelector = slicer.qMRMLNodeComboBox()
@@ -157,7 +175,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.TE2SpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("TE2 (s): ", self.TE2SpinBox)
 
-
     #
     # Scale factor for second image
     #
@@ -169,6 +186,36 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.scaleFactorSpinBox.setValue(0.8)
     self.scaleFactorSpinBox.setToolTip("Scale factor for the second echo")
     parametersFormLayout.addRow("Scale factor: ", self.scaleFactorSpinBox)
+
+    #
+    # Check box to correct noise
+    #
+    self.useNoiseCorrectionFlagCheckBox = qt.QCheckBox()
+    self.useNoiseCorrectionFlagCheckBox.checked = 1
+    self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, correct noise based on the estimated noise level.")
+    parametersFormLayout.addRow("Use Noise Correction", self.useNoiseCorrectionFlagCheckBox)
+
+    #
+    # Noise Level
+    #
+    self.Echo1NoiseSpinBox = qt.QDoubleSpinBox()
+    self.Echo1NoiseSpinBox.objectName = 'Echo1NoiseSpinBox'
+    self.Echo1NoiseSpinBox.setMaximum(500.0)
+    self.Echo1NoiseSpinBox.setMinimum(0.0)
+    self.Echo1NoiseSpinBox.setDecimals(6)
+    self.Echo1NoiseSpinBox.setValue(0.0)
+    self.Echo1NoiseSpinBox.setToolTip("Noise level for 1st echo noise correction.")
+    parametersFormLayout.addRow("Noise Level (Echo 1): ", self.Echo1NoiseSpinBox)
+
+    self.Echo2NoiseSpinBox = qt.QDoubleSpinBox()
+    self.Echo2NoiseSpinBox.objectName = 'Echo2NoiseSpinBox'
+    self.Echo2NoiseSpinBox.setMaximum(500.0)
+    self.Echo2NoiseSpinBox.setMinimum(0.0)
+    self.Echo2NoiseSpinBox.setDecimals(6)
+    self.Echo2NoiseSpinBox.setValue(0.0)
+    self.Echo2NoiseSpinBox.setToolTip("Noise level for 1st echo noise correction.")
+    parametersFormLayout.addRow("Noise Level (Echo 2): ", self.Echo2NoiseSpinBox)
+
     
     #
     # Echo 1/2 signal lower input threshold
@@ -208,7 +255,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramASpinBox.setMaximum(100.0)
     self.paramASpinBox.setMinimum(-100.0)
     self.paramASpinBox.setDecimals(8)
-    self.paramASpinBox.setValue(-0.128)
+    self.paramASpinBox.setValue(-0.089465444)
     self.paramASpinBox.setToolTip("TE for Input Volume 1")
     parametersFormLayout.addRow("Param A: ", self.paramASpinBox)
 
@@ -220,9 +267,21 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.paramBSpinBox.setMaximum(100.0)
     self.paramBSpinBox.setMinimum(-100.0)
     self.paramBSpinBox.setDecimals(8)
-    self.paramBSpinBox.setValue(56.67)
+    self.paramBSpinBox.setValue(31.06195482)
     self.paramBSpinBox.setToolTip("TE for Input Volume 2")
     parametersFormLayout.addRow("Param B: ", self.paramBSpinBox)
+
+    #
+    # Parameter B (Temp = A * R2Star + B)
+    #
+    self.scaleCalibrationR2sSpinBox = qt.QDoubleSpinBox()
+    self.scaleCalibrationR2sSpinBox.objectName = 'scaleCalibrationR2sSpinBox'
+    self.scaleCalibrationR2sSpinBox.setMaximum(1000.0)
+    self.scaleCalibrationR2sSpinBox.setMinimum(0.0)
+    self.scaleCalibrationR2sSpinBox.setDecimals(8)
+    self.scaleCalibrationR2sSpinBox.setValue(129.565)
+    self.scaleCalibrationR2sSpinBox.setToolTip("Scale Calibration")
+    parametersFormLayout.addRow("Scale Clibration R2* (s^-1): ", self.scaleCalibrationR2sSpinBox)
    
     #
     # Limit value range? 
@@ -268,6 +327,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.echo1ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.echo2ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.referenceROISelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.tempMapSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.useOutputThresholdFlagCheckBox.connect('toggled(bool)', self.onUseOutputThreshold)
 
@@ -281,7 +341,20 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
+    if self.referenceROISelector.currentNode():
+      self.scaleFactorSpinBox.enabled = False
+    else:
+      self.scaleFactorSpinBox.enabled = True
+
+    if self.useNoiseCorrectionFlagCheckBox.checked and self.referenceROISelector.currentNode() == None:
+      self.Echo1NoiseSpinBox.enabled = True
+      self.Echo2NoiseSpinBox.enabled = True
+    else:
+      self.Echo1NoiseSpinBox.enabled = False
+      self.Echo2NoiseSpinBox.enabled = False
+
     self.applyButton.enabled = self.echo1ImageSelector.currentNode() and self.echo1ImageSelector.currentNode() and self.tempMapSelector.currentNode()
+
 
   def onUseOutputThreshold(self):
     if self.useOutputThresholdFlagCheckBox.checked == True:
@@ -291,9 +364,12 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
       self.lowerOutputThresholdSpinBox.enabled = False;      
       self.upperOutputThresholdSpinBox.enabled = False;      
 
+
   def onApplyButton(self):
     logic = ComputeTempLogic()
-    noiseLevel = None
+    logic.setScaleCalibrationR2s(self.scaleCalibrationR2sSpinBox.value,
+                                 self.TE1SpinBox.value, self.TE2SpinBox.value)
+
     outputThreshold = None
     inputThreshold = [self.Echo1InputThresholdSpinBox.value, self.Echo2InputThresholdSpinBox.value]
 
@@ -302,9 +378,28 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     if self.useOutputThresholdFlagCheckBox.checked == True:
       outputThreshold = [self.lowerOutputThresholdSpinBox.value, self.upperOutputThresholdSpinBox.value]
 
+    scaleFactor = self.scaleFactorSpinBox.value
+    noiseLevel = None
+
+    if self.referenceROISelector.currentNode():
+      scaleFactor = logic.CalcScalingFactor(self.echo1ImageSelector.currentNode(),
+                                            self.echo2ImageSelector.currentNode(),
+                                            self.referenceROISelector.currentNode())
+      noiseEcho1 = logic.CalcNoise(self.echo1ImageSelector.currentNode(), None,
+                                   self.referenceROISelector.currentNode())
+      noiseEcho2 = logic.CalcNoise(self.echo2ImageSelector.currentNode(), None,
+                                   self.referenceROISelector.currentNode())
+      noiseLevel = [noiseEcho1, noiseEcho2]
+      self.scaleFactorSpinBox.value = scaleFactor
+      self.Echo1NoiseSpinBox.value = noiseEcho1
+      self.Echo2NoiseSpinBox.value = noiseEcho2
+    else:
+      if self.useNoiseCorrectionFlagCheckBox.checked:
+        noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
+
     logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
               self.tempMapSelector.currentNode(),
-              self.TE1SpinBox.value, self.TE2SpinBox.value, self.scaleFactorSpinBox.value,
+              self.TE1SpinBox.value, self.TE2SpinBox.value, scaleFactor,
               self.paramASpinBox.value, self.paramBSpinBox.value,
               noiseLevel, outputThreshold, inputThreshold, minT2s)
 
@@ -331,6 +426,59 @@ class ComputeTempLogic(ScriptedLoadableModuleLogic):
       logging.debug('isValidInputOutputData failed: no input volume node for ParamB image defined')
       return False
     return True
+  
+  def setScaleCalibrationR2s(self, r2s, TE1, TE2):
+    self.scaleCalibrationR2s = r2s
+    self.TE1 = TE1
+    self.TE2 = TE2
+
+  def CalcNoise(self, image1Node, image2Node, ROINode):
+    
+    if image2Node:
+      image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+      image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
+      subImage = sitk.Subtract(image1, image2)
+      absImage = sitk.Abs(subImage)
+            
+      absVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+      slicer.mrmlScene.AddNode(absVolumeNode)
+      absVolumeNode.SetName('abs')
+      sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
+      
+      absVolumeNode = slicer.util.getNode('abs')
+      lslogic = LabelStatistics.LabelStatisticsLogic(absVolumeNode, ROINode)
+      meanAbsDiff = lslogic.labelStats[1,"Mean"]
+            
+      slicer.mrmlScene.RemoveNode(image1Node)
+      slicer.mrmlScene.RemoveNode(image2Node)
+      slicer.mrmlScene.RemoveNode(ROINode)
+      slicer.mrmlScene.RemoveNode(absVolumeNode)
+        
+      return (meanAbsDiff/math.sqrt(math.pi/2.0))
+    else:
+        
+      lslogic = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
+      SD = lslogic.labelStats[1,"StdDev"]
+            
+      return SD
+
+
+  def CalcScalingFactor(self, image1Node, image2Node, ROINode):
+
+    image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+    image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
+    roiImage = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkInt8)
+    
+    LabelStatistics = sitk.LabelStatisticsImageFilter()
+    LabelStatistics.Execute(image1, roiImage)
+    echo1 = LabelStatistics.GetMean(1)
+    LabelStatistics.Execute(image2, roiImage)
+    echo2 = LabelStatistics.GetMean(1)
+
+    scale = echo1 / (echo2 * numpy.exp(self.scaleCalibrationR2s*(self.TE2-self.TE1)))
+
+    return (scale)
+
 
   def run(self, echo1ImageVolumeNode, echo2ImageVolumeNode, tempMapVolumeNode, te1, te2, scaleFactor, paramA, paramB, noiseLevel, outputThreshold, inputThreshold, minT2s):
     """

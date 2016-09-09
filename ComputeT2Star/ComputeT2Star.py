@@ -6,6 +6,8 @@ import logging
 import SimpleITK as sitk
 import sitkUtils
 import math
+import numpy
+import LabelStatistics
 
 #
 # ComputeT2Star
@@ -110,6 +112,23 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.inputTE2Selector.setToolTip( "Pick the second volume" )
     parametersFormLayout.addRow("Input Volume 2: ", self.inputTE2Selector)
 
+
+    #
+    # reference ROI selector
+    #
+    self.referenceROISelector = slicer.qMRMLNodeComboBox()
+    self.referenceROISelector.nodeTypes = ( ("vtkMRMLLabelMapVolumeNode"), "" )
+    self.referenceROISelector.selectNodeUponCreation = False
+    self.referenceROISelector.addEnabled = True
+    self.referenceROISelector.removeEnabled = True
+    self.referenceROISelector.noneEnabled = True
+    self.referenceROISelector.renameEnabled = True
+    self.referenceROISelector.showHidden = False
+    self.referenceROISelector.showChildNodeTypes = False
+    self.referenceROISelector.setMRMLScene( slicer.mrmlScene )
+    self.referenceROISelector.setToolTip( "Reference ROI for scaling factor and noise estimation" )
+    parametersFormLayout.addRow("Reference ROI: ", self.referenceROISelector)
+
     #
     # outputT2Star volume selector
     #
@@ -177,6 +196,18 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.ScaleSpinBox.setValue(1.000)
     self.ScaleSpinBox.setToolTip("Scaling factor to adjust magnitude of volume 2.")
     parametersFormLayout.addRow("Scaling Factor: ", self.ScaleSpinBox)
+
+    #
+    # R2* for Scale calibration 
+    #
+    self.scaleCalibrationR2sSpinBox = qt.QDoubleSpinBox()
+    self.scaleCalibrationR2sSpinBox.objectName = 'scaleCalibrationR2sSpinBox'
+    self.scaleCalibrationR2sSpinBox.setMaximum(1000.0)
+    self.scaleCalibrationR2sSpinBox.setMinimum(0.0)
+    self.scaleCalibrationR2sSpinBox.setDecimals(8)
+    self.scaleCalibrationR2sSpinBox.setValue(129.565)
+    self.scaleCalibrationR2sSpinBox.setToolTip("Scale Calibration")
+    parametersFormLayout.addRow("Scale Clibration R2* (s^-1): ", self.scaleCalibrationR2sSpinBox)
 
     #
     # Echo 1/2 signal lower input threshold
@@ -281,6 +312,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.inputTE1Selector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.inputTE2Selector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.referenceROISelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputT2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.outputR2StarSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.useOutputThresholdFlagCheckBox.connect('toggled(bool)', self.onUseOutputThreshold)
@@ -296,6 +328,19 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
+
+    if self.referenceROISelector.currentNode():
+      self.ScaleSpinBox.enabled = False
+    else:
+      self.ScaleSpinBox.enabled = True
+
+    if self.useNoiseCorrectionFlagCheckBox.checked and self.referenceROISelector.currentNode() == None:
+      self.Echo1NoiseSpinBox.enabled = True
+      self.Echo2NoiseSpinBox.enabled = True
+    else:
+      self.Echo1NoiseSpinBox.enabled = False
+      self.Echo2NoiseSpinBox.enabled = False
+
     self.applyButton.enabled = self.inputTE1Selector.currentNode() and self.inputTE1Selector.currentNode() and (self.outputT2StarSelector.currentNode() or self.outputR2StarSelector.currentNode())
 
   def onUseOutputThreshold(self):
@@ -307,7 +352,7 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
       self.upperOutputThresholdSpinBox.enabled = False;
 
   def onUseNoiseCorrection(self):
-    if self.useNoiseCorrectionFlagCheckBox.checked == True:
+    if self.useNoiseCorrectionFlagCheckBox.checked == True and self.referenceROISelector.currentNode() == None:
       self.Echo1NoiseSpinBox.enabled = True;
       self.Echo2NoiseSpinBox.enabled = True;      
     else:
@@ -337,10 +382,43 @@ class ComputeT2StarWidget(ScriptedLoadableModuleWidget):
     noiseLevel = None
     if self.useNoiseCorrectionFlagCheckBox.checked == True:
       noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
+
+    scaleFactor = self.ScaleSpinBox.value
+    noiseLevel = None
+
+    if self.referenceROISelector.currentNode():
+      inputTE1VolumeNode = self.inputTE1Selector.currentNode()
+      inputTE2VolumeNode = self.inputTE2Selector.currentNode()
+      ROINode = self.referenceROISelector.currentNode()
+
+      imageTE1 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE1VolumeNode.GetID()), sitk.sitkFloat64)
+      imageTE2 = sitk.Cast(sitkUtils.PullFromSlicer(inputTE2VolumeNode.GetID()), sitk.sitkFloat64)
+      roiImage = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkInt8)
+      
+      noiseEcho1 = logic.CalcNoise(imageTE1, None, roiImage)
+      noiseEcho2 = logic.CalcNoise(imageTE2, None, roiImage)
+      noiseLevel = [noiseEcho1, noiseEcho2]
+      print "noises = [%f, %f]\n" % (noiseEcho1, noiseEcho2)
+
+      logic.CorrectNoise(imageTE1, noiseEcho1)
+      logic.CorrectNoise(imageTE2, noiseEcho2)
+
+      scaleFactor = logic.CalcScalingFactor(imageTE1, imageTE2, roiImage, 
+                                            self.TE1SpinBox.value, self.TE2SpinBox.value,
+                                            self.scaleCalibrationR2sSpinBox.value)
+
+      print "scale = %f\n" % scaleFactor
+
+      self.ScaleSpinBox.value = scaleFactor
+      self.Echo1NoiseSpinBox.value = noiseEcho1
+      self.Echo2NoiseSpinBox.value = noiseEcho2
+    else:
+      if self.useNoiseCorrectionFlagCheckBox.checked:
+        noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
     
     logic.run(self.inputTE1Selector.currentNode(), self.inputTE2Selector.currentNode(),
               self.outputT2StarSelector.currentNode(), self.outputR2StarSelector.currentNode(),
-              self.TE1SpinBox.value, self.TE2SpinBox.value, self.ScaleSpinBox.value,
+              self.TE1SpinBox.value, self.TE2SpinBox.value, scaleFactor,
               noiseLevel, outputThreshold, inputThreshold, minT2s)
 
     ### Since PushToSlicer() called in logic.run() will delete the original node, obtain the new node and
@@ -376,6 +454,52 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
       logging.debug('isValidInputOutputData failed: no input volume node for TE2 image defined')
       return False
     return True
+
+  
+  def CalcNoise(self, image1, image2, roiImage):
+
+    LabelStatistics = sitk.LabelStatisticsImageFilter()
+      
+    if image2:
+      #Aimage1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+      #Aimage2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
+      #roiImage = sitk.Cast(sitkUtils.PullFromSlicer(roiImageNode.GetID()), sitk.sitkInt8)
+      subImage = sitk.Subtract(image1, image2)
+      absImage = sitk.Abs(subImage)
+            
+      LabelStatistics.Execute(absImage, roiImage)
+      meanAbsDiff = LabelStatistics.GetMean(1)
+      return (meanAbsDiff/math.sqrt(math.pi/2.0))
+
+    else:
+      LabelStatistics.Execute(image1, roiImage)
+      SD = LabelStatistics.GetSigma(1)
+      return SD
+
+  def CorrectNoise(self, image, noiseLevel):
+
+    squareImage = sitk.Pow(image, 2)
+    subImage = sitk.Subtract(squareImage, noiseLevel*noiseLevel)
+    subImagePositive1 = sitk.Threshold(subImage,0.0, float('Inf'), 0.0)
+    image = sitk.Sqrt(subImagePositive1)
+
+
+  def CalcScalingFactor(self, image1, image2, roiImage, TE1, TE2, scaleCalibrationR2s):
+
+    #image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+    #image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
+    #roiImage = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkInt8)
+
+    LabelStatistics = sitk.LabelStatisticsImageFilter()
+    LabelStatistics.Execute(image1, roiImage)
+    echo1 = LabelStatistics.GetMean(1)
+    LabelStatistics.Execute(image2, roiImage)
+    echo2 = LabelStatistics.GetMean(1)
+
+    scale = echo1 / (echo2 * numpy.exp(scaleCalibrationR2s*(TE2-TE1)))
+
+    return (scale)
+
 
   def run(self, inputTE1VolumeNode, inputTE2VolumeNode, outputT2StarVolumeNode, outputR2StarVolumeNode, TE1, TE2, scaleFactor, noiseLevel, outputThreshold, inputThreshold, minT2s):
     """

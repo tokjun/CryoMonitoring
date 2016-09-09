@@ -8,6 +8,7 @@ import sitkUtils
 import ComputeT2Star
 import LabelStatistics
 import numpy
+import math
 
 #
 # ComputeTemp
@@ -111,20 +112,36 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     ioFormLayout.addRow("Echo 2 image: ", self.echo2ImageSelector)
 
     #
-    # reference ROI selector
+    # Noise estimation ROI selector
     #
-    self.referenceROISelector = slicer.qMRMLNodeComboBox()
-    self.referenceROISelector.nodeTypes = ( ("vtkMRMLLabelMapVolumeNode"), "" )
-    self.referenceROISelector.selectNodeUponCreation = False
-    self.referenceROISelector.addEnabled = True
-    self.referenceROISelector.removeEnabled = True
-    self.referenceROISelector.noneEnabled = True
-    self.referenceROISelector.renameEnabled = True
-    self.referenceROISelector.showHidden = False
-    self.referenceROISelector.showChildNodeTypes = False
-    self.referenceROISelector.setMRMLScene( slicer.mrmlScene )
-    self.referenceROISelector.setToolTip( "Reference ROI for scaling factor and noise estimation" )
-    ioFormLayout.addRow("Reference ROI: ", self.referenceROISelector)
+    self.noiseEstimationROISelector = slicer.qMRMLNodeComboBox()
+    self.noiseEstimationROISelector.nodeTypes = ( ("vtkMRMLLabelMapVolumeNode"), "" )
+    self.noiseEstimationROISelector.selectNodeUponCreation = False
+    self.noiseEstimationROISelector.addEnabled = True
+    self.noiseEstimationROISelector.removeEnabled = True
+    self.noiseEstimationROISelector.noneEnabled = True
+    self.noiseEstimationROISelector.renameEnabled = True
+    self.noiseEstimationROISelector.showHidden = False
+    self.noiseEstimationROISelector.showChildNodeTypes = False
+    self.noiseEstimationROISelector.setMRMLScene( slicer.mrmlScene )
+    self.noiseEstimationROISelector.setToolTip( "ROI for noise estimation" )
+    ioFormLayout.addRow("Noise ROI: ", self.noiseEstimationROISelector)
+
+    #
+    # Scale factor estimation ROI selector
+    #
+    self.scaleEstimationROISelector = slicer.qMRMLNodeComboBox()
+    self.scaleEstimationROISelector.nodeTypes = ( ("vtkMRMLLabelMapVolumeNode"), "" )
+    self.scaleEstimationROISelector.selectNodeUponCreation = False
+    self.scaleEstimationROISelector.addEnabled = True
+    self.scaleEstimationROISelector.removeEnabled = True
+    self.scaleEstimationROISelector.noneEnabled = True
+    self.scaleEstimationROISelector.renameEnabled = True
+    self.scaleEstimationROISelector.showHidden = False
+    self.scaleEstimationROISelector.showChildNodeTypes = False
+    self.scaleEstimationROISelector.setMRMLScene( slicer.mrmlScene )
+    self.scaleEstimationROISelector.setToolTip( "ROI for scaling factor estimation" )
+    ioFormLayout.addRow("Scale ROI: ", self.scaleEstimationROISelector)
 
     #
     # tempMap volume selector
@@ -188,19 +205,36 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Scale factor: ", self.scaleFactorSpinBox)
 
     #
-    # Check box to correct noise
+    # Radio buttons for noise correction
     #
-    self.useNoiseCorrectionFlagCheckBox = qt.QCheckBox()
-    self.useNoiseCorrectionFlagCheckBox.checked = 1
-    self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, correct noise based on the estimated noise level.")
-    parametersFormLayout.addRow("Use Noise Correction", self.useNoiseCorrectionFlagCheckBox)
+    self.NoiseCorrectionLayout = qt.QHBoxLayout()
+    self.NoiseCorrectionOff = qt.QRadioButton("Off")
+    self.NoiseCorrectionSD = qt.QRadioButton("SD")
+    self.NoiseCorrectionMean = qt.QRadioButton("Mean")
+    self.NoiseCorrectionLayout.addWidget(self.NoiseCorrectionOff)
+    self.NoiseCorrectionLayout.addWidget(self.NoiseCorrectionSD)
+    self.NoiseCorrectionLayout.addWidget(self.NoiseCorrectionMean)
+    
+    self.NoiseCorrectionGroup = qt.QButtonGroup()
+    self.NoiseCorrectionGroup.addButton(self.NoiseCorrectionOff)
+    self.NoiseCorrectionGroup.addButton(self.NoiseCorrectionSD)
+    self.NoiseCorrectionGroup.addButton(self.NoiseCorrectionMean)
+
+    parametersFormLayout.addRow("Noise Correction: ", self.NoiseCorrectionLayout)
+
+    self.NoiseCorrectionOff.setChecked(True)
+
+    #self.useNoiseCorrectionFlagCheckBox = qt.QCheckBox()
+    #self.useNoiseCorrectionFlagCheckBox.checked = 1
+    #self.useNoiseCorrectionFlagCheckBox.setToolTip("If checked, correct noise based on the estimated noise level.")
+    #parametersFormLayout.addRow("Use Noise Correction", self.useNoiseCorrectionFlagCheckBox)
 
     #
     # Noise Level
     #
     self.Echo1NoiseSpinBox = qt.QDoubleSpinBox()
     self.Echo1NoiseSpinBox.objectName = 'Echo1NoiseSpinBox'
-    self.Echo1NoiseSpinBox.setMaximum(500.0)
+    self.Echo1NoiseSpinBox.setMaximum(1000.0)
     self.Echo1NoiseSpinBox.setMinimum(0.0)
     self.Echo1NoiseSpinBox.setDecimals(6)
     self.Echo1NoiseSpinBox.setValue(0.0)
@@ -209,7 +243,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
 
     self.Echo2NoiseSpinBox = qt.QDoubleSpinBox()
     self.Echo2NoiseSpinBox.objectName = 'Echo2NoiseSpinBox'
-    self.Echo2NoiseSpinBox.setMaximum(500.0)
+    self.Echo2NoiseSpinBox.setMaximum(1000.0)
     self.Echo2NoiseSpinBox.setMinimum(0.0)
     self.Echo2NoiseSpinBox.setDecimals(6)
     self.Echo2NoiseSpinBox.setValue(0.0)
@@ -272,7 +306,6 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Param B: ", self.paramBSpinBox)
 
     #
-    # Parameter B (Temp = A * R2Star + B)
     #
     self.scaleCalibrationR2sSpinBox = qt.QDoubleSpinBox()
     self.scaleCalibrationR2sSpinBox.objectName = 'scaleCalibrationR2sSpinBox'
@@ -327,7 +360,11 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.applyButton.connect('clicked(bool)', self.onApplyButton)
     self.echo1ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.echo2ImageSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.referenceROISelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.noiseEstimationROISelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.NoiseCorrectionOff.connect('toggled(bool)', self.onSelect)
+    self.NoiseCorrectionMean.connect('toggled(bool)', self.onSelect)
+    self.NoiseCorrectionSD.connect('toggled(bool)', self.onSelect)
+    self.scaleEstimationROISelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.tempMapSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.useOutputThresholdFlagCheckBox.connect('toggled(bool)', self.onUseOutputThreshold)
 
@@ -341,14 +378,18 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
-    if self.referenceROISelector.currentNode():
+    if self.scaleEstimationROISelector.currentNode():
       self.scaleFactorSpinBox.enabled = False
     else:
       self.scaleFactorSpinBox.enabled = True
 
-    if self.useNoiseCorrectionFlagCheckBox.checked and self.referenceROISelector.currentNode() == None:
-      self.Echo1NoiseSpinBox.enabled = True
-      self.Echo2NoiseSpinBox.enabled = True
+    if self.NoiseCorrectionOff.checked == False:
+      if self.noiseEstimationROISelector.currentNode() == None:
+        self.Echo1NoiseSpinBox.enabled = True
+        self.Echo2NoiseSpinBox.enabled = True
+      else:
+        self.Echo1NoiseSpinBox.enabled = False
+        self.Echo2NoiseSpinBox.enabled = False
     else:
       self.Echo1NoiseSpinBox.enabled = False
       self.Echo2NoiseSpinBox.enabled = False
@@ -378,30 +419,45 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     if self.useOutputThresholdFlagCheckBox.checked == True:
       outputThreshold = [self.lowerOutputThresholdSpinBox.value, self.upperOutputThresholdSpinBox.value]
 
-    scaleFactor = self.scaleFactorSpinBox.value
-    noiseLevel = None
 
-    if self.referenceROISelector.currentNode():
+    ## Scale factor
+    scaleFactor = self.scaleFactorSpinBox.value
+
+    if self.scaleEstimationROISelector.currentNode():
       scaleFactor = logic.CalcScalingFactor(self.echo1ImageSelector.currentNode(),
                                             self.echo2ImageSelector.currentNode(),
-                                            self.referenceROISelector.currentNode())
-      noiseEcho1 = logic.CalcNoise(self.echo1ImageSelector.currentNode(), None,
-                                   self.referenceROISelector.currentNode())
-      noiseEcho2 = logic.CalcNoise(self.echo2ImageSelector.currentNode(), None,
-                                   self.referenceROISelector.currentNode())
-      noiseLevel = [noiseEcho1, noiseEcho2]
+                                            self.scaleEstimationROISelector.currentNode())
       self.scaleFactorSpinBox.value = scaleFactor
+
+    ## Noise level
+    noiseLevel = None
+    if self.NoiseCorrectionOff.checked == False:
+      if self.noiseEstimationROISelector.currentNode():
+        method = "Mean"
+        if self.NoiseCorrectionSD.checked == True:
+          method = "SD"
+        noiseEcho1 = logic.CalcNoise(self.echo1ImageSelector.currentNode(), None,
+                                     self.noiseEstimationROISelector.currentNode(), method)
+        noiseEcho2 = logic.CalcNoise(self.echo2ImageSelector.currentNode(), None,
+                                     self.noiseEstimationROISelector.currentNode(), method)
+        noiseLevel = [noiseEcho1, noiseEcho2]
+      else:
+        noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
       self.Echo1NoiseSpinBox.value = noiseEcho1
       self.Echo2NoiseSpinBox.value = noiseEcho2
     else:
-      if self.useNoiseCorrectionFlagCheckBox.checked:
-        noiseLevel = [self.Echo1NoiseSpinBox.value, self.Echo2NoiseSpinBox.value]
+      noiseLevel = [0.0, 0.0]
+      self.Echo1NoiseSpinBox.value = 0.0
+      self.Echo2NoiseSpinBox.value = 0.0
 
+    ## Generate temperature map
     logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
               self.tempMapSelector.currentNode(),
               self.TE1SpinBox.value, self.TE2SpinBox.value, scaleFactor,
               self.paramASpinBox.value, self.paramBSpinBox.value,
               noiseLevel, outputThreshold, inputThreshold, minT2s)
+
+    ## Change colormap
 
   def onReload(self, moduleName="ComputeTemp"):
     # Generic reload method for any scripted module.
@@ -432,35 +488,45 @@ class ComputeTempLogic(ScriptedLoadableModuleLogic):
     self.TE1 = TE1
     self.TE2 = TE2
 
-  def CalcNoise(self, image1Node, image2Node, ROINode):
+  ## Estimate the noise using two given images.
+  ## If None is specified for the second image, the function will estimate the noise
+  ## from a single image (single-image approach).
+  ## The 'method' argment must be either "Mean" or "StdDev".
+  def CalcNoise(self, image1Node, image2Node, ROINode, method="Mean"):
     
-    if image2Node:
-      image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+    labelStatistics = sitk.LabelStatisticsImageFilter()
+    image1 = sitk.Cast(sitkUtils.PullFromSlicer(image1Node.GetID()), sitk.sitkFloat32)
+    roiImage = sitk.Cast(sitkUtils.PullFromSlicer(ROINode.GetID()), sitk.sitkInt8)
+
+    if image2Node: # Two-image approach
+
       image2 = sitk.Cast(sitkUtils.PullFromSlicer(image2Node.GetID()), sitk.sitkFloat32)
       subImage = sitk.Subtract(image1, image2)
       absImage = sitk.Abs(subImage)
-            
-      absVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
-      slicer.mrmlScene.AddNode(absVolumeNode)
-      absVolumeNode.SetName('abs')
-      sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
-      
-      absVolumeNode = slicer.util.getNode('abs')
-      lslogic = LabelStatistics.LabelStatisticsLogic(absVolumeNode, ROINode)
-      meanAbsDiff = lslogic.labelStats[1,"Mean"]
-            
-      slicer.mrmlScene.RemoveNode(image1Node)
-      slicer.mrmlScene.RemoveNode(image2Node)
-      slicer.mrmlScene.RemoveNode(ROINode)
-      slicer.mrmlScene.RemoveNode(absVolumeNode)
+
+      #absVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
+      #slicer.mrmlScene.AddNode(absVolumeNode)
+      #absVolumeNode.SetName('abs')
+      #sitkUtils.PushToSlicer(absImage, absVolumeNode.GetName(), 0, True)
+      #absVolumeNode = slicer.util.getNode('abs')
+      #lslogic = LabelStatistics.LabelStatisticsLogic(absVolumeNode, ROINode)
+      #meanAbsDiff = lslogic.labelStats[1,method]
+      #slicer.mrmlScene.RemoveNode(absVolumeNode)
+
+      labelStatistics = sitk.LabelStatisticsImageFilter()
+      labelStatistics.Execute(subImage, roiImage)
+
+    else: # Single-image approach
         
-      return (meanAbsDiff/math.sqrt(math.pi/2.0))
-    else:
-        
-      lslogic = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
-      SD = lslogic.labelStats[1,"StdDev"]
-            
-      return SD
+      #lslogic = LabelStatistics.LabelStatisticsLogic(image1Node, ROINode)
+      labelStatistics.Execute(image1, roiImage)
+
+    if method == "Mean":
+      mean = labelStatistics.GetMean(1)
+      return (mean/math.sqrt(math.pi/2.0))
+    else: # method == "StdDev"
+      sd = labelStatistics.GetSigma(1)
+      return sd
 
 
   def CalcScalingFactor(self, image1Node, image2Node, ROINode):

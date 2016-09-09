@@ -305,8 +305,8 @@ class ComputeTempRelativeR2sLogic(ScriptedLoadableModuleLogic):
       imageTemp = paramA * (imageReference - imageBaseline) + paramB
 
       if inputThreshold != None:
-        mask1 = sitk.BinaryThreshold(imageBaseline, 0.0, inputThreshold[1] - 10e-6, 1, 0) 
-        mask2 = sitk.BinaryThreshold(imageReference, 0.0, inputThreshold[1] - 10e-6, 1, 0) 
+        mask1 = sitk.BinaryThreshold(imageBaseline, 0.0, inputThreshold[1] - 10e-10, 1, 0) 
+        mask2 = sitk.BinaryThreshold(imageReference, 0.0, inputThreshold[1] - 10e-10, 1, 0) 
         mask = sitk.And(mask1, mask2)
         imageTemp = sitk.Mask(imageTemp, mask)
         imask = sitk.Not(mask)

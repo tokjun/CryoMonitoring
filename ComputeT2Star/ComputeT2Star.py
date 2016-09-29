@@ -555,9 +555,9 @@ class ComputeT2StarLogic(ScriptedLoadableModuleLogic):
     if inputThreshold != None:
       mask1 = sitk.BinaryThreshold(imageTE1, inputThreshold[0], float('Inf'), 1, 0) 
       mask2 = sitk.BinaryThreshold(imageTE2, inputThreshold[1], float('Inf'), 1, 0) 
-      mask3 = sitk.Greater(imageTE2, imageTE1, 1, 0)
+      #mask3 = sitk.Greater(imageTE2, imageTE1, 1, 0)
       mask = sitk.And(mask1, mask2)
-      mask = sitk.And(mask, mask3)
+      #mask = sitk.And(mask, mask3)
 
       imask = sitk.Not(mask)
       imaskFloat = sitk.Cast(imask, sitk.sitkFloat64)

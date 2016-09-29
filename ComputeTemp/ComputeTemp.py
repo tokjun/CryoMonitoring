@@ -200,7 +200,7 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
     self.scaleFactorSpinBox.setMaximum(10.0)
     self.scaleFactorSpinBox.setMinimum(0.0)
     self.scaleFactorSpinBox.setDecimals(8)
-    self.scaleFactorSpinBox.setValue(0.8)
+    self.scaleFactorSpinBox.setValue(0.7899)
     self.scaleFactorSpinBox.setToolTip("Scale factor for the second echo")
     parametersFormLayout.addRow("Scale factor: ", self.scaleFactorSpinBox)
 
@@ -451,13 +451,23 @@ class ComputeTempWidget(ScriptedLoadableModuleWidget):
       self.Echo2NoiseSpinBox.value = 0.0
 
     ## Generate temperature map
+    tmapNode = self.tempMapSelector.currentNode()
+    tmapName = tmapNode.GetName()
     logic.run(self.echo1ImageSelector.currentNode(), self.echo2ImageSelector.currentNode(),
-              self.tempMapSelector.currentNode(),
+              tmapNode,
               self.TE1SpinBox.value, self.TE2SpinBox.value, scaleFactor,
               self.paramASpinBox.value, self.paramBSpinBox.value,
               noiseLevel, outputThreshold, inputThreshold, minT2s)
 
+    tmapNode = slicer.util.getNode(tmapName)
+
     ## Change colormap
+    dispNode = tmapNode.GetDisplayNode()
+    c = slicer.mrmlScene.GetNodesByClassByName('vtkMRMLColorTableNode', 'ColdToHotRainbow')
+    tableNode = c.GetItemAsObject(0)
+    dispNode.SetAutoWindowLevel(0)
+    dispNode.SetWindowLevelMinMax(-50, 30)
+    dispNode.SetAndObserveColorNodeID(tableNode.GetID())
 
   def onReload(self, moduleName="ComputeTemp"):
     # Generic reload method for any scripted module.
@@ -556,6 +566,8 @@ class ComputeTempLogic(ScriptedLoadableModuleLogic):
 
     logging.info('Processing started')
 
+    tempName = tempMapVolumeNode.GetName()
+
     r2StarVolumeNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLScalarVolumeNode")
     slicer.mrmlScene.AddNode(r2StarVolumeNode)
     r2StarVolumeNode.SetName("R2Star-temp")
@@ -593,7 +605,7 @@ class ComputeTempLogic(ScriptedLoadableModuleLogic):
         sitkUtils.PushToSlicer(imageTemp, tempMapVolumeNode.GetName(), 0, True)
 
     slicer.mrmlScene.RemoveNode(r2StarVolumeNode)
-    
+
     logging.info('Processing completed')
 
     return True
